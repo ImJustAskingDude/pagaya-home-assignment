@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.core.enums import TaskStatus
-from app.models.task import TaskModel
+from app.models import TaskModel
 from app.task_handlers.cancellation import TaskCancelled
 from app.task_handlers.registry import get_handler
 

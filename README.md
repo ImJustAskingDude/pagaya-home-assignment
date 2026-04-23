@@ -35,6 +35,16 @@ Then open:
 - API docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/health
 
+If those host ports are already in use, override them when starting Compose:
+
+```bash
+API_PORT=18000 FRONTEND_PORT=15173 docker compose up --build
+```
+
+Then open the matching frontend and API URLs for those ports. PostgreSQL and
+Redis are used only inside the Compose network and are not published to the
+host by default.
+
 To stop:
 
 ```bash
@@ -112,7 +122,7 @@ List endpoints accept `offset`, `limit`, `sort`, `order`, and `filter` query par
 ## Tests
 
 There are focused backend tests for payload validation, ORM constructor ergonomics,
-and queue/task API lifecycle behavior:
+queue/task API lifecycle behavior, and worker model import wiring:
 
 ```bash
 cd backend
