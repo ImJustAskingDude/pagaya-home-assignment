@@ -14,20 +14,51 @@ if TYPE_CHECKING:
 class TaskModel(Base):
     __tablename__ = "tasks"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    queue_id: Mapped[int] = mapped_column(ForeignKey("queues.id", ondelete="CASCADE"), index=True, nullable=False)
-    celery_task_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    id: Mapped[int] = mapped_column(init=False, primary_key=True)
+    queue_id: Mapped[int] = mapped_column(
+        ForeignKey("queues.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    celery_task_id: Mapped[str | None] = mapped_column(
+        String(255),
+        init=False,
+        default=None,
+        index=True,
+    )
     type: Mapped[str] = mapped_column(String(64), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), index=True, default=TaskStatus.QUEUED.value, nullable=False)
-    result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
-    error: Mapped[str | None] = mapped_column(Text)
-    attempts: Mapped[int] = mapped_column(default=0, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        init=False,
+        default=TaskStatus.QUEUED.value,
+        index=True,
+        nullable=False,
+    )
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSON, init=False, default=None)
+    error: Mapped[str | None] = mapped_column(Text, init=False, default=None)
+    attempts: Mapped[int] = mapped_column(init=False, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(default=1, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    cancel_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        init=False,
+        server_default=func.now(),
+        index=True,
+    )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        init=False,
+        default=None,
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        init=False,
+        default=None,
+    )
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        init=False,
+        default=None,
+    )
 
-    queue: Mapped["QueueModel"] = relationship(back_populates="tasks")
-
+    queue: Mapped["QueueModel"] = relationship(init=False, back_populates="tasks")

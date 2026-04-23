@@ -81,7 +81,6 @@ class TaskService:
             type=data.type.value,
             payload=normalize_payload(data.type, data.payload),
             max_attempts=data.max_attempts,
-            status=TaskStatus.QUEUED.value,
         )
         self.session.add(task)
         self.session.commit()

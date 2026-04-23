@@ -95,6 +95,9 @@ List endpoints accept `offset`, `limit`, `sort`, `order`, and `filter` query par
 - Queue deletion is blocked while queued or running tasks exist, avoiding surprising active-task deletion.
 - Active task deletion is blocked; cancel first, then delete after the task reaches a terminal state.
 - Manual retry resets a failed/cancelled task row and enqueues a new Celery execution.
+- ORM models use SQLAlchemy native dataclass mapping with keyword-only constructors,
+  keeping application-set fields explicit while database- and worker-owned fields
+  stay managed internally.
 
 ## Tradeoffs And Future Work
 
@@ -108,7 +111,7 @@ List endpoints accept `offset`, `limit`, `sort`, `order`, and `filter` query par
 
 ## Tests
 
-There is a small starting test module for payload validation:
+There are small starting tests for payload validation and ORM constructor ergonomics:
 
 ```bash
 cd backend
