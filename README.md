@@ -111,7 +111,8 @@ List endpoints accept `offset`, `limit`, `sort`, `order`, and `filter` query par
 
 ## Tests
 
-There are small starting tests for payload validation and ORM constructor ergonomics:
+There are focused backend tests for payload validation, ORM constructor ergonomics,
+and queue/task API lifecycle behavior:
 
 ```bash
 cd backend
