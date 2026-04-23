@@ -106,6 +106,13 @@ def test_task_create_list_cancel_and_delete_flow(client: TestClient, dispatcher:
     assert list_response.json()["total"] == 1
     assert [item["id"] for item in list_response.json()["items"]] == [task["id"]]
 
+    react_admin_large_page = client.get(
+        "/api/tasks",
+        params={"limit": 1000, "sort": "created_at", "order": "DESC", "filter": json.dumps({})},
+    )
+    assert react_admin_large_page.status_code == 200
+    assert react_admin_large_page.json()["total"] == 1
+
     active_delete = client.delete(f"/api/tasks/{task['id']}")
     assert active_delete.status_code == 409
     assert active_delete.json()["detail"] == "Cancel active tasks before deleting them"

@@ -12,10 +12,9 @@ class ListResponse(BaseModel, Generic[T]):
 
 class QueryParams(BaseModel):
     offset: int = Field(default=0, ge=0)
-    limit: int = Field(default=25, ge=1, le=100)
+    limit: int = Field(default=25, ge=1, le=1000)
     sort: str = "id"
     order: str = "ASC"
     filter: str | None = None
 
     model_config = ConfigDict(extra="forbid")
-
