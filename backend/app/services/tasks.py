@@ -48,13 +48,13 @@ class TaskService:
         try:
             celery_task_id = dispatcher.enqueue(task.id)
         except Exception as exc:
-            task.mark_dispatch_failed(exc)
             with self.unit_of_work:
+                task.mark_dispatch_failed(exc)
                 self.tasks.save(task)
             raise DispatchError("Task could not be dispatched") from exc
 
-        task.store_celery_task_id(celery_task_id)
         with self.unit_of_work:
+            task.store_celery_task_id(celery_task_id)
             self.tasks.save(task)
         self.unit_of_work.refresh(task)
         return task
@@ -64,8 +64,8 @@ class TaskService:
         if task.status not in ACTIVE_STATUSES:
             return task
 
-        task.request_cancel()
         with self.unit_of_work:
+            task.request_cancel()
             self.tasks.save(task)
         self.unit_of_work.refresh(task)
 
@@ -79,21 +79,21 @@ class TaskService:
         if task.status not in {TaskStatus.FAILED.value, TaskStatus.CANCELLED.value}:
             raise ConflictError("Only failed or cancelled tasks can be retried")
 
-        task.reset_for_retry()
         with self.unit_of_work:
+            task.reset_for_retry()
             self.tasks.save(task)
         self.unit_of_work.refresh(task)
 
         try:
             celery_task_id = dispatcher.enqueue(task.id)
         except Exception as exc:
-            task.mark_dispatch_failed(exc)
             with self.unit_of_work:
+                task.mark_dispatch_failed(exc)
                 self.tasks.save(task)
             raise DispatchError("Task could not be dispatched") from exc
 
-        task.store_celery_task_id(celery_task_id)
         with self.unit_of_work:
+            task.store_celery_task_id(celery_task_id)
             self.tasks.save(task)
         self.unit_of_work.refresh(task)
         return task
