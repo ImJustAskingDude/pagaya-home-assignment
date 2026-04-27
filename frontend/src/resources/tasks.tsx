@@ -28,6 +28,7 @@ import {
 
 import { apiUrl } from "../config";
 import { JsonField } from "../components/JsonField";
+import { useNotificationCenter } from "../components/NotificationCenter";
 
 const taskTypeChoices = [
   { id: "echo", name: "echo" },
@@ -52,6 +53,7 @@ type TaskRecord = {
 
 function TaskCommandButton({ command }: { command: "cancel" | "retry" }) {
   const record = useRecordContext<TaskRecord>();
+  const { addNotification } = useNotificationCenter();
   const notify = useNotify();
   const refresh = useRefresh();
   const isCancel = command === "cancel";
@@ -75,7 +77,7 @@ function TaskCommandButton({ command }: { command: "cancel" | "retry" }) {
       return;
     }
 
-    notify(`Task ${command} requested`, { type: "info" });
+    addNotification({ message: `Task ${record.id} ${command} requested` });
     refresh();
   };
 
