@@ -13,8 +13,11 @@ export function JsonField({ source }: JsonFieldProps) {
     <Box
       component="pre"
       sx={{
-        bgcolor: "grey.100",
+        bgcolor: (theme) => (theme.palette.mode === "dark" ? "grey.900" : "grey.100"),
+        border: 1,
+        borderColor: "divider",
         borderRadius: 1,
+        color: "text.primary",
         fontFamily: "monospace",
         fontSize: 13,
         m: 0,
