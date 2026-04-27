@@ -1,5 +1,4 @@
-from collections.abc import Callable
-from typing import Any
+from typing import Any, NoReturn, Protocol
 
 from sqlalchemy.orm import Session
 
@@ -9,11 +8,15 @@ from app.repositories.tasks import TaskRepository
 from app.task_handlers.cancellation import TaskCancelled
 from app.task_handlers.registry import get_handler
 
-Retry = Callable[..., Any]
+
+class RetryTask(Protocol):
+    """Call shape used for Celery Task.retry."""
+
+    def __call__(self, *, exc: Exception, countdown: int, max_retries: int) -> NoReturn: ...
 
 
 class TaskExecutionService:
-    def __init__(self, session: Session, retry: Retry) -> None:
+    def __init__(self, session: Session, retry: RetryTask) -> None:
         self.retry = retry
         self.tasks = TaskRepository(session)
 
