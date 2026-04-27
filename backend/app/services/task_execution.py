@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.enums import TaskStatus
 from app.models.task import TaskModel
+from app.repositories.task_results import TaskResultRepository
 from app.repositories.tasks import TaskRepository
 from app.services.unit_of_work import UnitOfWork
 from app.task_handlers.cancellation import TaskCancelled
@@ -20,6 +21,7 @@ class TaskExecutionService:
     def __init__(self, session: Session, retry: RetryTask) -> None:
         self.retry = retry
         self.unit_of_work = UnitOfWork(session)
+        self.task_results = TaskResultRepository(session)
         self.tasks = TaskRepository(session)
 
     def execute(self, task_id: int) -> dict[str, Any]:
@@ -29,6 +31,7 @@ class TaskExecutionService:
         if task.status == TaskStatus.CANCELLED.value or task.cancel_requested_at is not None:
             with self.unit_of_work:
                 task.mark_cancelled()
+                self.task_results.add_from_task(task)
                 self.tasks.save(task)
             return {"cancelled": True}
 
@@ -42,6 +45,7 @@ class TaskExecutionService:
         except TaskCancelled:
             with self.unit_of_work:
                 task.mark_cancelled()
+                self.task_results.add_from_task(task)
                 self.tasks.save(task)
             return {"cancelled": True}
         except Exception as exc:
@@ -49,6 +53,7 @@ class TaskExecutionService:
 
         with self.unit_of_work:
             task.mark_succeeded(result)
+            self.task_results.add_from_task(task)
             self.tasks.save(task)
         return result
 
@@ -61,5 +66,6 @@ class TaskExecutionService:
 
         with self.unit_of_work:
             task.mark_failed(exc)
+            self.task_results.add_from_task(task)
             self.tasks.save(task)
         raise exc

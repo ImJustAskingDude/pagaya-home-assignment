@@ -153,7 +153,7 @@ export function TaskList() {
 export function TaskResultList() {
   return (
     <List
-      sort={{ field: "finished_at", order: "DESC" }}
+      sort={{ field: "created_at", order: "DESC" }}
       queryOptions={{ refetchInterval: 2000 }}
       filters={[
         <ReferenceInput key="queue_id" source="queue_id" reference="queues" alwaysOn />,
@@ -163,12 +163,13 @@ export function TaskResultList() {
     >
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="id" />
+        <TextField source="task_id" />
         <ReferenceField source="queue_id" reference="queues" link="show">
           <TextField source="name" />
         </ReferenceField>
         <TextField source="type" />
         <TextField source="status" />
-        <DateField source="finished_at" showTime />
+        <DateField source="created_at" showTime />
         <Labeled label="Result">
           <JsonField source="result" />
         </Labeled>

@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.core.enums import TaskStatus
 from app.models.task import TaskModel
+from app.models.task_result import TaskResultModel
+from app.services.task_execution import TaskExecutionService
 
 
 def create_queue(client: TestClient, name: str = "default") -> dict[str, Any]:
@@ -32,6 +34,10 @@ def create_task(
     )
     assert response.status_code == 201
     return response.json()
+
+
+def fail_unexpected_retry(*, exc: Exception, countdown: int, max_retries: int) -> None:
+    raise AssertionError("Celery retry was not expected in this test")
 
 
 def test_queue_crud_lists_with_total_count_and_blocks_active_delete(client: TestClient) -> None:
@@ -100,6 +106,10 @@ def test_task_create_list_cancel_and_delete_flow(client: TestClient, dispatcher:
     assert task["celery_task_id"] == f"celery-{task['id']}-1"
     assert dispatcher.enqueued == [task["id"]]
 
+    initial_results = client.get("/api/task-results", params={"task_id": task["id"]})
+    assert initial_results.status_code == 200
+    assert initial_results.json()["total"] == 0
+
     get_response = client.get(f"/api/tasks/{task['id']}")
     assert get_response.status_code == 200
     assert get_response.json()["id"] == task["id"]
@@ -130,6 +140,9 @@ def test_task_create_list_cancel_and_delete_flow(client: TestClient, dispatcher:
     invalid_sort = client.get("/api/tasks", params={"order_by": "not_a_field"})
     assert invalid_sort.status_code == 422
 
+    invalid_result_sort = client.get("/api/task-results", params={"order_by": "not_a_field"})
+    assert invalid_result_sort.status_code == 422
+
     unknown_filter = client.get("/api/tasks", params={"not_a_filter": "value"})
     assert unknown_filter.status_code == 200
     assert unknown_filter.json()["total"] == 1
@@ -145,6 +158,17 @@ def test_task_create_list_cancel_and_delete_flow(client: TestClient, dispatcher:
     assert cancelled["cancel_requested_at"] is not None
     assert cancelled["finished_at"] is not None
     assert dispatcher.revoked == [task["celery_task_id"]]
+
+    cancelled_results = client.get("/api/task-results", params={"task_id": task["id"]})
+    assert cancelled_results.status_code == 200
+    assert cancelled_results.json()["total"] == 1
+    cancelled_result = cancelled_results.json()["items"][0]
+    assert cancelled_result["task_id"] == task["id"]
+    assert cancelled_result["queue_id"] == queue["id"]
+    assert cancelled_result["type"] == "echo"
+    assert cancelled_result["status"] == TaskStatus.CANCELLED.value
+    assert cancelled_result["result"] is None
+    assert cancelled_result["error"] is None
 
     delete_response = client.delete(f"/api/tasks/{task['id']}")
     assert delete_response.status_code == 200
@@ -192,6 +216,43 @@ def test_retry_rejects_active_tasks_and_resets_finished_task_for_new_dispatch(
     assert dispatcher.enqueued == [task["id"], task["id"]]
 
 
+def test_task_results_preserve_each_finished_retry(
+    client: TestClient,
+    db_session: Session,
+    dispatcher: Any,
+) -> None:
+    queue = create_queue(client)
+    task = create_task(client, queue["id"], payload={"message": "history"})
+
+    service = TaskExecutionService(db_session, retry=fail_unexpected_retry)
+    assert service.execute(task["id"]) == {"message": "history"}
+
+    first_results = client.get("/api/task-results", params={"task_id": task["id"], "order_by": "id"})
+    assert first_results.status_code == 200
+    assert first_results.json()["total"] == 1
+    assert first_results.json()["items"][0]["result"] == {"message": "history"}
+
+    retry_response = client.post(f"/api/tasks/{task['id']}/retry")
+    assert retry_response.status_code == 200
+    assert dispatcher.enqueued == [task["id"], task["id"]]
+
+    assert service.execute(task["id"]) == {"message": "history"}
+
+    retry_results = client.get("/api/task-results", params={"task_id": task["id"], "order_by": "id"})
+    assert retry_results.status_code == 200
+    assert retry_results.json()["total"] == 2
+    results = retry_results.json()["items"]
+    assert [result["task_id"] for result in results] == [task["id"], task["id"]]
+    assert [result["status"] for result in results] == [
+        TaskStatus.SUCCEEDED.value,
+        TaskStatus.SUCCEEDED.value,
+    ]
+    assert [result["result"] for result in results] == [
+        {"message": "history"},
+        {"message": "history"},
+    ]
+
+
 def test_create_task_dispatch_failure_returns_503_and_persists_failed_metadata(
     client: TestClient,
     db_session: Session,
@@ -217,6 +278,14 @@ def test_create_task_dispatch_failure_returns_503_and_persists_failed_metadata(
     assert task.celery_task_id is None
     assert task.error == "Dispatch failed: redis offline"
     assert task.finished_at is not None
+
+    task_result = db_session.scalars(select(TaskResultModel)).one()
+    assert task_result.task_id == task.id
+    assert task_result.queue_id == queue["id"]
+    assert task_result.type == "echo"
+    assert task_result.status == TaskStatus.FAILED.value
+    assert task_result.result is None
+    assert task_result.error == "Dispatch failed: redis offline"
 
 
 def test_retry_dispatch_failure_returns_503_and_marks_task_failed(
@@ -244,6 +313,11 @@ def test_retry_dispatch_failure_returns_503_and_marks_task_failed(
     assert task_model.celery_task_id is None
     assert task_model.error == "Dispatch failed: broker unavailable"
     assert task_model.finished_at is not None
+
+    task_result = db_session.scalars(select(TaskResultModel)).one()
+    assert task_result.task_id == task["id"]
+    assert task_result.status == TaskStatus.FAILED.value
+    assert task_result.error == "Dispatch failed: broker unavailable"
 
 
 def test_missing_resources_return_404(client: TestClient) -> None:

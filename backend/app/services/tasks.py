@@ -4,6 +4,7 @@ from app.core.enums import ACTIVE_STATUSES, TERMINAL_STATUSES
 from app.models.task import TaskModel
 from app.repositories.filters import TaskFilter
 from app.repositories.queues import QueueRepository
+from app.repositories.task_results import TaskResultRepository
 from app.repositories.tasks import TaskRepository
 from app.schemas.task import TaskCreate
 from app.services.dispatcher import dispatcher
@@ -15,6 +16,7 @@ class TaskService:
     def __init__(self, session: Session) -> None:
         self.unit_of_work = UnitOfWork(session)
         self.queues = QueueRepository(session)
+        self.task_results = TaskResultRepository(session)
         self.tasks = TaskRepository(session)
 
     def list(
@@ -50,6 +52,7 @@ class TaskService:
         except Exception as exc:
             with self.unit_of_work:
                 task.mark_dispatch_failed(exc)
+                self.task_results.add_from_task(task)
                 self.tasks.save(task)
             raise DispatchError("Task could not be dispatched") from exc
 
@@ -66,6 +69,8 @@ class TaskService:
 
         with self.unit_of_work:
             task.request_cancel()
+            if task.status not in ACTIVE_STATUSES:
+                self.task_results.add_from_task(task)
             self.tasks.save(task)
         self.unit_of_work.refresh(task)
 
@@ -89,6 +94,7 @@ class TaskService:
         except Exception as exc:
             with self.unit_of_work:
                 task.mark_dispatch_failed(exc)
+                self.task_results.add_from_task(task)
                 self.tasks.save(task)
             raise DispatchError("Task could not be dispatched") from exc
 

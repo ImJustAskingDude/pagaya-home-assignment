@@ -69,21 +69,19 @@ const appendFilters = (search: URLSearchParams, filters: Record<string, unknown>
   });
 };
 
-const apiResource = (resource: string) => (resource === "task-results" ? "tasks" : resource);
-
 export const dataProvider: DataProvider = {
   async getList<RecordType extends RaRecord = any>(
     resource: string,
     params: GetListParams & QueryFunctionContext,
   ): Promise<GetListResult<RecordType>> {
     const query = buildListQuery(params);
-    const { json } = await httpClient(`${apiUrl}/${apiResource(resource)}?${query}`);
+    const { json } = await httpClient(`${apiUrl}/${resource}?${query}`);
     const response = json as ApiListResponse<RecordType>;
     return { data: response.items, total: response.total };
   },
 
   async getOne(resource, params) {
-    const { json } = await httpClient(`${apiUrl}/${apiResource(resource)}/${params.id}`);
+    const { json } = await httpClient(`${apiUrl}/${resource}/${params.id}`);
     return { data: json };
   },
 
@@ -95,7 +93,7 @@ export const dataProvider: DataProvider = {
       limit: "100",
       id__in: params.ids.join(","),
     });
-    const { json } = await httpClient(`${apiUrl}/${apiResource(resource)}?${query.toString()}`);
+    const { json } = await httpClient(`${apiUrl}/${resource}?${query.toString()}`);
     const response = json as ApiListResponse<RecordType>;
     return { data: response.items };
   },
@@ -108,13 +106,13 @@ export const dataProvider: DataProvider = {
       ...params,
       filter: { ...params.filter, [params.target]: params.id },
     });
-    const { json } = await httpClient(`${apiUrl}/${apiResource(resource)}?${query}`);
+    const { json } = await httpClient(`${apiUrl}/${resource}?${query}`);
     const response = json as ApiListResponse<RecordType>;
     return { data: response.items, total: response.total };
   },
 
   async create(resource, params) {
-    const { json } = await httpClient(`${apiUrl}/${apiResource(resource)}`, {
+    const { json } = await httpClient(`${apiUrl}/${resource}`, {
       method: "POST",
       body: JSON.stringify(params.data),
     });
@@ -122,7 +120,7 @@ export const dataProvider: DataProvider = {
   },
 
   async update(resource, params) {
-    const { json } = await httpClient(`${apiUrl}/${apiResource(resource)}/${params.id}`, {
+    const { json } = await httpClient(`${apiUrl}/${resource}/${params.id}`, {
       method: "PUT",
       body: JSON.stringify(params.data),
     });
@@ -132,7 +130,7 @@ export const dataProvider: DataProvider = {
   async updateMany(resource, params) {
     const updates = await Promise.all(
       params.ids.map((id) =>
-        httpClient(`${apiUrl}/${apiResource(resource)}/${id}`, {
+        httpClient(`${apiUrl}/${resource}/${id}`, {
           method: "PUT",
           body: JSON.stringify(params.data),
         }),
@@ -142,7 +140,7 @@ export const dataProvider: DataProvider = {
   },
 
   async delete(resource, params) {
-    const { json } = await httpClient(`${apiUrl}/${apiResource(resource)}/${params.id}`, {
+    const { json } = await httpClient(`${apiUrl}/${resource}/${params.id}`, {
       method: "DELETE",
     });
     return { data: json };
@@ -151,7 +149,7 @@ export const dataProvider: DataProvider = {
   async deleteMany(resource, params) {
     const deletes = await Promise.all(
       params.ids.map((id) =>
-        httpClient(`${apiUrl}/${apiResource(resource)}/${id}`, {
+        httpClient(`${apiUrl}/${resource}/${id}`, {
           method: "DELETE",
         }),
       ),
