@@ -1,18 +1,21 @@
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+
+
+def clean_queue_name(value: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("Queue name cannot be blank")
+    return cleaned
+
+
+QueueName = Annotated[str, Field(min_length=1, max_length=120), AfterValidator(clean_queue_name)]
 
 
 class QueueBase(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-
-    @field_validator("name")
-    @classmethod
-    def clean_name(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("Queue name cannot be blank")
-        return cleaned
+    name: QueueName
 
 
 class QueueCreate(QueueBase):
