@@ -26,12 +26,10 @@ class CountPrimesPayload(BaseModel):
     n: int = Field(ge=0, le=200_000)
 
 
-class TaskRead(BaseModel):
+class TaskReadBase(BaseModel):
     id: int
     queue_id: int
     celery_task_id: str | None
-    type: str
-    payload: dict[str, Any]
     status: TaskStatus
     result: dict[str, Any] | None
     error: str | None
@@ -43,6 +41,43 @@ class TaskRead(BaseModel):
     cancel_requested_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EchoTaskRead(TaskReadBase):
+    type: Literal[TaskType.ECHO]
+    payload: EchoPayload
+
+
+class WaitTaskRead(TaskReadBase):
+    type: Literal[TaskType.WAIT]
+    payload: WaitPayload
+
+
+class ComputeHashTaskRead(TaskReadBase):
+    type: Literal[TaskType.COMPUTE_HASH]
+    payload: ComputeHashPayload
+
+
+class RandomFailTaskRead(TaskReadBase):
+    type: Literal[TaskType.RANDOM_FAIL]
+    payload: RandomFailPayload
+
+
+class CountPrimesTaskRead(TaskReadBase):
+    type: Literal[TaskType.COUNT_PRIMES]
+    payload: CountPrimesPayload
+
+
+TaskRead = Annotated[
+    (
+        EchoTaskRead
+        | WaitTaskRead
+        | ComputeHashTaskRead
+        | RandomFailTaskRead
+        | CountPrimesTaskRead
+    ),
+    Field(discriminator="type"),
+]
 
 
 class TaskCreateBase(BaseModel):
