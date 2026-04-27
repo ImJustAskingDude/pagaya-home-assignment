@@ -34,3 +34,6 @@ class QueueModel(Base):
         back_populates="queue",
         cascade="all, delete-orphan",
     )
+
+    def rename(self, name: str) -> None:
+        self.name = name

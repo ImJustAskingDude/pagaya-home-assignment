@@ -43,7 +43,7 @@ class QueueService:
         queue = self.get(queue_id)
         try:
             with self.unit_of_work:
-                queue.name = data.name
+                queue.rename(data.name)
                 self.queues.save(queue)
         except IntegrityError as exc:
             raise ConflictError("Queue name already exists") from exc
