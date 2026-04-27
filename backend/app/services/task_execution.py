@@ -25,27 +25,33 @@ class TaskExecutionService:
         if task is None:
             return {"ignored": True, "reason": "task_not_found"}
         if task.status == TaskStatus.CANCELLED.value or task.cancel_requested_at is not None:
-            self.tasks.mark_cancelled(task)
+            task.mark_cancelled()
+            self.tasks.save(task)
             return {"cancelled": True}
 
-        self.tasks.mark_running(task)
+        task.mark_running()
+        self.tasks.save(task)
 
         try:
             handler = get_handler(task.type)
             result = handler(task.payload, lambda: self.tasks.cancellation_requested(task_id))
         except TaskCancelled:
-            self.tasks.mark_cancelled(task)
+            task.mark_cancelled()
+            self.tasks.save(task)
             return {"cancelled": True}
         except Exception as exc:
             return self._handle_failure(task, exc)
 
-        self.tasks.mark_succeeded(task, result)
+        task.mark_succeeded(result)
+        self.tasks.save(task)
         return result
 
     def _handle_failure(self, task: TaskModel, exc: Exception) -> dict[str, Any]:
         if task.attempts < task.max_attempts and task.cancel_requested_at is None:
-            self.tasks.mark_queued_for_retry(task, exc)
+            task.mark_queued_for_retry(exc)
+            self.tasks.save(task)
             raise self.retry(exc=exc, countdown=2, max_retries=task.max_attempts - 1)
 
-        self.tasks.mark_failed(task, exc)
+        task.mark_failed(exc)
+        self.tasks.save(task)
         raise exc

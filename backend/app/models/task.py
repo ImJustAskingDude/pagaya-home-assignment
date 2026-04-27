@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, func
@@ -62,3 +62,55 @@ class TaskModel(Base):
     )
 
     queue: Mapped["QueueModel"] = relationship(init=False, back_populates="tasks")
+
+    def store_celery_task_id(self, celery_task_id: str) -> None:
+        self.celery_task_id = celery_task_id
+
+    def mark_dispatch_failed(self, exc: Exception) -> None:
+        self.status = TaskStatus.FAILED.value
+        self.error = f"Dispatch failed: {exc}"
+        self.finished_at = datetime.now(timezone.utc)
+
+    def request_cancel(self) -> None:
+        now = datetime.now(timezone.utc)
+        self.cancel_requested_at = now
+        if self.status == TaskStatus.QUEUED.value:
+            self.status = TaskStatus.CANCELLED.value
+            self.finished_at = now
+
+    def reset_for_retry(self) -> None:
+        self.status = TaskStatus.QUEUED.value
+        self.result = None
+        self.error = None
+        self.attempts = 0
+        self.started_at = None
+        self.finished_at = None
+        self.cancel_requested_at = None
+        self.celery_task_id = None
+
+    def mark_running(self) -> None:
+        self.status = TaskStatus.RUNNING.value
+        self.attempts += 1
+        self.started_at = datetime.now(timezone.utc)
+        self.finished_at = None
+        self.error = None
+
+    def mark_cancelled(self) -> None:
+        self.status = TaskStatus.CANCELLED.value
+        self.finished_at = datetime.now(timezone.utc)
+
+    def mark_succeeded(self, result: dict[str, Any]) -> None:
+        self.status = TaskStatus.SUCCEEDED.value
+        self.result = result
+        self.error = None
+        self.finished_at = datetime.now(timezone.utc)
+
+    def mark_queued_for_retry(self, exc: Exception) -> None:
+        self.status = TaskStatus.QUEUED.value
+        self.error = str(exc)
+        self.finished_at = None
+
+    def mark_failed(self, exc: Exception) -> None:
+        self.status = TaskStatus.FAILED.value
+        self.error = str(exc)
+        self.finished_at = datetime.now(timezone.utc)
