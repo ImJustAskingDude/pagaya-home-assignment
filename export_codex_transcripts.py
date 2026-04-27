@@ -6,6 +6,8 @@ Usage:
         --output all_conversations.md
     python3 export_codex_transcripts.py ~/.codex/sessions/2026/04/27/session.jsonl \
         --output all_conversations.md
+    python3 export_codex_transcripts.py ~/.codex/sessions \
+        --cwd /path/to/project --output project_conversations.md
 """
 
 from __future__ import annotations
@@ -44,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("codex_conversations_transcript.md"),
         help="Markdown file to write. Defaults to codex_conversations_transcript.md.",
+    )
+    parser.add_argument(
+        "--cwd",
+        type=Path,
+        help="Only include sessions whose metadata cwd matches this directory.",
     )
     parser.add_argument(
         "--messages-only",
@@ -142,6 +149,21 @@ def session_sort_key(path: Path) -> tuple[str, str]:
     if isinstance(timestamp, str):
         return (timestamp, str(path))
     return ("", str(path))
+
+
+def filter_by_cwd(session_files: list[Path], cwd: Path | None) -> list[Path]:
+    if cwd is None:
+        return session_files
+
+    expected_cwd = str(cwd.expanduser().resolve())
+    filtered = []
+    for path in session_files:
+        records = load_jsonl(path)
+        metadata = session_metadata(records)
+        if metadata.get("cwd") == expected_cwd:
+            filtered.append(path)
+
+    return filtered
 
 
 def render_message(timestamp: str, payload: dict[str, Any]) -> list[str]:
@@ -271,6 +293,7 @@ def main() -> None:
     args = parse_args()
     source = args.source.expanduser().resolve()
     output = args.output.expanduser().resolve()
+    cwd_filter = args.cwd.expanduser().resolve() if args.cwd is not None else None
 
     if source.is_file():
         session_files = [source]
@@ -281,6 +304,8 @@ def main() -> None:
     else:
         raise SystemExit(f"Source does not exist: {source}")
 
+    session_files = filter_by_cwd(session_files, cwd_filter)
+
     if not session_files:
         raise SystemExit(f"No .jsonl files found under: {source}")
 
@@ -290,10 +315,16 @@ def main() -> None:
         f"Generated: {datetime.now().isoformat(timespec='seconds')}",
         f"{source_label}: `{source}`",
         f"Sessions included: {len(session_files)}",
-        "",
-        "Internal system/developer instructions, environment context records, encrypted reasoning, token counters, and compaction payloads are omitted.",
-        "",
     ]
+    if cwd_filter is not None:
+        markdown.append(f"CWD filter: `{cwd_filter}`")
+    markdown.extend(
+        [
+            "",
+            "Internal system/developer instructions, environment context records, encrypted reasoning, token counters, and compaction payloads are omitted.",
+            "",
+        ]
+    )
 
     include_tools = not args.messages_only
     for session_file in session_files:
