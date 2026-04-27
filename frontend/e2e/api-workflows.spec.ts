@@ -9,7 +9,14 @@ type QueueRecord = {
 };
 
 type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
-type TaskType = "echo" | "wait" | "compute_hash" | "random_fail" | "count_primes";
+type TaskType =
+  | "echo"
+  | "wait"
+  | "compute_hash"
+  | "random_fail"
+  | "count_primes"
+  | "json_transform"
+  | "batch_fanout";
 
 type TaskRecord = {
   id: number;
@@ -87,7 +94,7 @@ test("manages queues and preserves user-provided names", async ({ request }) => 
   }
 });
 
-test("executes each supported task type end to end", async ({ request }) => {
+test("executes core task types end to end", async ({ request }) => {
   const taskIds: number[] = [];
   let queueId: number | undefined;
 
@@ -158,6 +165,93 @@ test("executes each supported task type end to end", async ({ request }) => {
   } finally {
     await cleanupTasks(request, taskIds);
     if (queueId !== undefined) {
+      await deleteQueueIfExists(request, queueId);
+    }
+  }
+});
+
+test("executes documentation task types end to end", async ({ request }) => {
+  const taskIds: number[] = [];
+  let queueId: number | undefined;
+
+  try {
+    const queue = await createQueue(request, `e2e docs task types ${runId}`);
+    queueId = queue.id;
+
+    const jsonTransform = await createTask(request, {
+      queue_id: queue.id,
+      type: "json_transform",
+      payload: {
+        input: { id: 42, name: "Ada", role: "engineer", hidden: true },
+        select_keys: ["id", "name", "role"],
+        rename_keys: { id: "user_id", role: "title" },
+      },
+    });
+    taskIds.push(jsonTransform.id);
+
+    const fanout = await createTask(request, {
+      queue_id: queue.id,
+      type: "batch_fanout",
+      payload: {
+        child_count: 3,
+        message_prefix: "fanout child",
+        child_max_attempts: 1,
+      },
+    });
+    taskIds.push(fanout.id);
+
+    const transformed = await waitForTask(
+      request,
+      jsonTransform.id,
+      (current) => current.status === "succeeded",
+      `json_transform task ${jsonTransform.id} to succeed`,
+    );
+    expect(transformed.result).toEqual({
+      output: {
+        user_id: 42,
+        name: "Ada",
+        title: "engineer",
+      },
+    });
+
+    const fanoutParent = await waitForTask(
+      request,
+      fanout.id,
+      (current) => current.status === "succeeded",
+      `batch_fanout task ${fanout.id} to succeed`,
+    );
+    expect(fanoutParent.result?.child_count).toBe(3);
+    expect(Array.isArray(fanoutParent.result?.child_task_ids)).toBe(true);
+
+    const childTaskIds = fanoutParent.result?.child_task_ids as number[];
+    expect(childTaskIds).toHaveLength(3);
+    taskIds.push(...childTaskIds);
+
+    const childTasks = await Promise.all(
+      childTaskIds.map((taskId) =>
+        waitForTask(
+          request,
+          taskId,
+          (current) => current.status === "succeeded",
+          `fanout child task ${taskId} to succeed`,
+        ),
+      ),
+    );
+
+    expect(childTasks.map((task) => task.payload)).toEqual([
+      { message: "fanout child 1" },
+      { message: "fanout child 2" },
+      { message: "fanout child 3" },
+    ]);
+    expect(childTasks.map((task) => task.result)).toEqual([
+      { message: "fanout child 1" },
+      { message: "fanout child 2" },
+      { message: "fanout child 3" },
+    ]);
+  } finally {
+    await cleanupTasks(request, taskIds);
+    if (queueId !== undefined) {
+      await cleanupQueueTasks(request, queueId);
       await deleteQueueIfExists(request, queueId);
     }
   }
@@ -347,6 +441,19 @@ async function cleanupTasks(request: APIRequestContext, taskIds: number[]): Prom
   for (const taskId of [...taskIds].reverse()) {
     await deleteTaskIfExists(request, taskId);
   }
+}
+
+async function cleanupQueueTasks(request: APIRequestContext, queueId: number): Promise<void> {
+  const listed = await getList<TaskRecord>(request, "tasks", {
+    queue_id: String(queueId),
+    limit: "1000",
+    order_by: "-id",
+  });
+
+  await cleanupTasks(
+    request,
+    listed.items.map((task) => task.id),
+  );
 }
 
 async function deleteTaskIfExists(request: APIRequestContext, taskId: number): Promise<void> {
