@@ -29,18 +29,14 @@ class QueueRepository:
 
     def add(self, queue: QueueModel) -> QueueModel:
         self.session.add(queue)
-        self.session.commit()
-        self.session.refresh(queue)
         return queue
 
     def save(self, queue: QueueModel) -> QueueModel:
-        self.session.commit()
-        self.session.refresh(queue)
+        self.session.add(queue)
         return queue
 
     def delete(self, queue: QueueModel) -> QueueModel:
         self.session.delete(queue)
-        self.session.commit()
         return queue
 
     def count_active_tasks(self, queue_id: int) -> int:
@@ -52,6 +48,3 @@ class QueueRepository:
             )
             or 0
         )
-
-    def rollback(self) -> None:
-        self.session.rollback()

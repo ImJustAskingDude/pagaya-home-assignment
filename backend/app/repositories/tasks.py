@@ -28,19 +28,14 @@ class TaskRepository:
 
     def add(self, task: TaskModel) -> TaskModel:
         self.session.add(task)
-        self.session.commit()
-        self.session.refresh(task)
         return task
 
     def delete(self, task: TaskModel) -> TaskModel:
         self.session.delete(task)
-        self.session.commit()
         return task
 
-    def save(self, task: TaskModel, *, refresh: bool = False) -> TaskModel:
-        self.session.commit()
-        if refresh:
-            self.session.refresh(task)
+    def save(self, task: TaskModel) -> TaskModel:
+        self.session.add(task)
         return task
 
     def cancellation_requested(self, task_id: int) -> bool:

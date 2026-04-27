@@ -8,10 +8,12 @@ from app.repositories.tasks import TaskRepository
 from app.schemas.task import TaskCreate
 from app.services.dispatcher import dispatcher
 from app.services.errors import ConflictError, DispatchError, NotFoundError
+from app.services.unit_of_work import UnitOfWork
 
 
 class TaskService:
     def __init__(self, session: Session) -> None:
+        self.unit_of_work = UnitOfWork(session)
         self.queues = QueueRepository(session)
         self.tasks = TaskRepository(session)
 
@@ -33,24 +35,29 @@ class TaskService:
         if self.queues.get(data.queue_id) is None:
             raise NotFoundError("Queue not found")
 
-        task = self.tasks.add(
-            TaskModel(
-                queue_id=data.queue_id,
-                type=data.type.value,
-                payload=data.payload.model_dump(),
-                max_attempts=data.max_attempts,
-            )
+        task = TaskModel(
+            queue_id=data.queue_id,
+            type=data.type.value,
+            payload=data.payload.model_dump(),
+            max_attempts=data.max_attempts,
         )
+        with self.unit_of_work:
+            self.tasks.add(task)
+        self.unit_of_work.refresh(task)
 
         try:
             celery_task_id = dispatcher.enqueue(task.id)
         except Exception as exc:
             task.mark_dispatch_failed(exc)
-            self.tasks.save(task)
+            with self.unit_of_work:
+                self.tasks.save(task)
             raise DispatchError("Task could not be dispatched") from exc
 
         task.store_celery_task_id(celery_task_id)
-        return self.tasks.save(task, refresh=True)
+        with self.unit_of_work:
+            self.tasks.save(task)
+        self.unit_of_work.refresh(task)
+        return task
 
     def cancel(self, task_id: int) -> TaskModel:
         task = self.get(task_id)
@@ -58,7 +65,9 @@ class TaskService:
             return task
 
         task.request_cancel()
-        self.tasks.save(task, refresh=True)
+        with self.unit_of_work:
+            self.tasks.save(task)
+        self.unit_of_work.refresh(task)
 
         if task.celery_task_id:
             dispatcher.revoke(task.celery_task_id)
@@ -71,20 +80,28 @@ class TaskService:
             raise ConflictError("Only failed or cancelled tasks can be retried")
 
         task.reset_for_retry()
-        self.tasks.save(task, refresh=True)
+        with self.unit_of_work:
+            self.tasks.save(task)
+        self.unit_of_work.refresh(task)
 
         try:
             celery_task_id = dispatcher.enqueue(task.id)
         except Exception as exc:
             task.mark_dispatch_failed(exc)
-            self.tasks.save(task)
+            with self.unit_of_work:
+                self.tasks.save(task)
             raise DispatchError("Task could not be dispatched") from exc
 
         task.store_celery_task_id(celery_task_id)
-        return self.tasks.save(task, refresh=True)
+        with self.unit_of_work:
+            self.tasks.save(task)
+        self.unit_of_work.refresh(task)
+        return task
 
     def delete(self, task_id: int) -> TaskModel:
         task = self.get(task_id)
         if task.status in ACTIVE_STATUSES:
             raise ConflictError("Cancel active tasks before deleting them")
-        return self.tasks.delete(task)
+        with self.unit_of_work:
+            self.tasks.delete(task)
+        return task
