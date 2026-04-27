@@ -27,7 +27,7 @@ class QueueService:
         return queue
 
     def create(self, data: QueueCreate) -> QueueModel:
-        queue = QueueModel(name=data.name.strip())
+        queue = QueueModel(name=data.name)
         try:
             return self.queues.add(queue)
         except IntegrityError as exc:
@@ -36,7 +36,7 @@ class QueueService:
 
     def update(self, queue_id: int, data: QueueUpdate) -> QueueModel:
         queue = self.get(queue_id)
-        queue.name = data.name.strip()
+        queue.name = data.name
         try:
             return self.queues.save(queue)
         except IntegrityError as exc:

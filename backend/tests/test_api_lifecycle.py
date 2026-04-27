@@ -38,13 +38,13 @@ def test_queue_crud_lists_with_total_count_and_blocks_active_delete(client: Test
     alpha = create_queue(client, " alpha ")
     beta = create_queue(client, "beta")
 
-    assert alpha["name"] == "alpha"
+    assert alpha["name"] == " alpha "
 
     list_response = client.get("/api/queues", params={"order_by": "name", "limit": 1})
     assert list_response.status_code == 200
     assert list_response.headers["X-Total-Count"] == "2"
     assert list_response.json()["total"] == 2
-    assert [queue["name"] for queue in list_response.json()["items"]] == ["alpha"]
+    assert [queue["name"] for queue in list_response.json()["items"]] == [" alpha "]
 
     many_response = client.get(
         "/api/queues",
@@ -62,11 +62,11 @@ def test_queue_crud_lists_with_total_count_and_blocks_active_delete(client: Test
     assert unknown_filter_response.status_code == 200
     assert unknown_filter_response.json()["total"] == 2
 
-    update_response = client.put(f"/api/queues/{alpha['id']}", json={"name": "critical"})
+    update_response = client.put(f"/api/queues/{alpha['id']}", json={"name": " critical "})
     assert update_response.status_code == 200
-    assert update_response.json()["name"] == "critical"
+    assert update_response.json()["name"] == " critical "
 
-    duplicate_response = client.post("/api/queues", json={"name": "critical"})
+    duplicate_response = client.post("/api/queues", json={"name": " critical "})
     assert duplicate_response.status_code == 409
 
     task = create_task(client, alpha["id"])
@@ -79,7 +79,7 @@ def test_queue_crud_lists_with_total_count_and_blocks_active_delete(client: Test
 
     delete_response = client.delete(f"/api/queues/{alpha['id']}")
     assert delete_response.status_code == 200
-    assert delete_response.json()["name"] == "critical"
+    assert delete_response.json()["name"] == " critical "
 
     missing_response = client.get(f"/api/queues/{alpha['id']}")
     assert missing_response.status_code == 404
