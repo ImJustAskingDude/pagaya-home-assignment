@@ -14,7 +14,12 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default=["http://localhost:5173"], alias="CORS_ORIGINS")
     default_max_attempts: int = Field(default=1, alias="DEFAULT_MAX_ATTEMPTS")
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", populate_by_name=True)
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        validate_by_alias=True,
+        validate_by_name=True,
+    )
 
 
 @lru_cache
@@ -23,4 +28,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-
