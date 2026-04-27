@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import raise_http_error
 from app.core.database import get_session
+from app.repositories.filters import TaskFilter
 from app.schemas.common import ListResponse
 from app.schemas.task import TaskCreate, TaskRead
 from app.services.errors import ConflictError, DispatchError, NotFoundError
-from app.services.query import TaskFilter
 from app.services.tasks import TaskService
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])

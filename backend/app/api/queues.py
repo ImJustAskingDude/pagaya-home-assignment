@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import raise_http_error
 from app.core.database import get_session
+from app.repositories.filters import QueueFilter
 from app.schemas.common import ListResponse
 from app.schemas.queue import QueueCreate, QueueRead, QueueUpdate
 from app.services.errors import ConflictError, NotFoundError
-from app.services.query import QueueFilter
 from app.services.queues import QueueService
 
 router = APIRouter(prefix="/queues", tags=["queues"])
