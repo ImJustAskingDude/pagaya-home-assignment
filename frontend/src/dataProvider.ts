@@ -1,4 +1,15 @@
-import { DataProvider, fetchUtils } from "react-admin";
+import { fetchUtils } from "react-admin";
+import type {
+  DataProvider,
+  GetListParams,
+  GetListResult,
+  GetManyParams,
+  GetManyReferenceParams,
+  GetManyReferenceResult,
+  GetManyResult,
+  QueryFunctionContext,
+  RaRecord,
+} from "react-admin";
 
 import { apiUrl } from "./config";
 
@@ -38,19 +49,34 @@ const buildListQuery = (params: ListQueryParams) => {
   const search = new URLSearchParams({
     offset: String((page - 1) * perPage),
     limit: String(perPage),
-    sort: field,
-    order,
-    filter: JSON.stringify(params.filter ?? {}),
+    order_by: order.toUpperCase() === "DESC" ? `-${field}` : field,
   });
+
+  appendFilters(search, params.filter ?? {});
 
   return search.toString();
 };
 
+const appendFilters = (search: URLSearchParams, filters: Record<string, unknown>) => {
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    const apiKey = key === "ids" ? "id__in" : key;
+    const apiValue = Array.isArray(value) ? value.join(",") : String(value);
+    search.set(apiKey, apiValue);
+  });
+};
+
 export const dataProvider: DataProvider = {
-  async getList(resource, params) {
+  async getList<RecordType extends RaRecord = any>(
+    resource: string,
+    params: GetListParams & QueryFunctionContext,
+  ): Promise<GetListResult<RecordType>> {
     const query = buildListQuery(params);
     const { json } = await httpClient(`${apiUrl}/${resource}?${query}`);
-    const response = json as ApiListResponse<Record<string, unknown>>;
+    const response = json as ApiListResponse<RecordType>;
     return { data: response.items, total: response.total };
   },
 
@@ -59,23 +85,29 @@ export const dataProvider: DataProvider = {
     return { data: json };
   },
 
-  async getMany(resource, params) {
+  async getMany<RecordType extends RaRecord = any>(
+    resource: string,
+    params: GetManyParams<RecordType> & QueryFunctionContext,
+  ): Promise<GetManyResult<RecordType>> {
     const query = new URLSearchParams({
       limit: "100",
-      filter: JSON.stringify({ ids: params.ids }),
+      id__in: params.ids.join(","),
     });
     const { json } = await httpClient(`${apiUrl}/${resource}?${query.toString()}`);
-    const response = json as ApiListResponse<Record<string, unknown>>;
+    const response = json as ApiListResponse<RecordType>;
     return { data: response.items };
   },
 
-  async getManyReference(resource, params) {
+  async getManyReference<RecordType extends RaRecord = any>(
+    resource: string,
+    params: GetManyReferenceParams & QueryFunctionContext,
+  ): Promise<GetManyReferenceResult<RecordType>> {
     const query = buildListQuery({
       ...params,
       filter: { ...params.filter, [params.target]: params.id },
     });
     const { json } = await httpClient(`${apiUrl}/${resource}?${query}`);
-    const response = json as ApiListResponse<Record<string, unknown>>;
+    const response = json as ApiListResponse<RecordType>;
     return { data: response.items, total: response.total };
   },
 

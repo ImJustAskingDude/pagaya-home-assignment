@@ -35,6 +35,20 @@ Then open:
 - API docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/health
 
+The frontend container runs as `${UID:-1000}:${GID:-1000}` so files created
+through the bind mount stay owned by the host user. If your local UID/GID are
+not `1000`, start Compose with `UID=$(id -u) GID=$(id -g) docker compose up --build`.
+
+If those host ports are already in use, override them when starting Compose:
+
+```bash
+API_PORT=18000 FRONTEND_PORT=15173 docker compose up --build
+```
+
+Then open the matching frontend and API URLs for those ports. PostgreSQL and
+Redis are used only inside the Compose network and are not published to the
+host by default.
+
 To stop:
 
 ```bash
@@ -84,7 +98,10 @@ Main resources:
 - `POST /api/tasks/{id}/retry`
 - `DELETE /api/tasks/{id}`
 
-List endpoints accept `offset`, `limit`, `sort`, `order`, and `filter` query parameters. This matches the custom React Admin data provider.
+List endpoints accept `offset`, `limit`, resource-specific filter query parameters, and `order_by`.
+Filtering uses `fastapi-filter` syntax, for example
+`GET /api/tasks?status=queued&type=echo&order_by=-created_at` or
+`GET /api/tasks?id__in=1,2,3`. This matches the custom React Admin data provider.
 
 ## Design Choices
 
@@ -95,6 +112,9 @@ List endpoints accept `offset`, `limit`, `sort`, `order`, and `filter` query par
 - Queue deletion is blocked while queued or running tasks exist, avoiding surprising active-task deletion.
 - Active task deletion is blocked; cancel first, then delete after the task reaches a terminal state.
 - Manual retry resets a failed/cancelled task row and enqueues a new Celery execution.
+- ORM models use SQLAlchemy native dataclass mapping with keyword-only constructors,
+  keeping application-set fields explicit while database- and worker-owned fields
+  stay managed internally.
 
 ## Tradeoffs And Future Work
 
@@ -108,7 +128,8 @@ List endpoints accept `offset`, `limit`, `sort`, `order`, and `filter` query par
 
 ## Tests
 
-There is a small starting test module for payload validation:
+There are focused backend tests for payload validation, ORM constructor ergonomics,
+queue/task API lifecycle behavior, and worker model import wiring:
 
 ```bash
 cd backend

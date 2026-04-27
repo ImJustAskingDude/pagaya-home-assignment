@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.enums import TaskStatus, TaskType
 
@@ -26,21 +26,10 @@ class CountPrimesPayload(BaseModel):
     n: int = Field(ge=0, le=200_000)
 
 
-PAYLOAD_SCHEMAS: dict[TaskType, type[BaseModel]] = {
-    TaskType.ECHO: EchoPayload,
-    TaskType.WAIT: WaitPayload,
-    TaskType.COMPUTE_HASH: ComputeHashPayload,
-    TaskType.RANDOM_FAIL: RandomFailPayload,
-    TaskType.COUNT_PRIMES: CountPrimesPayload,
-}
-
-
-class TaskRead(BaseModel):
+class TaskReadBase(BaseModel):
     id: int
     queue_id: int
     celery_task_id: str | None
-    type: str
-    payload: dict[str, Any]
     status: TaskStatus
     result: dict[str, Any] | None
     error: str | None
@@ -54,18 +43,80 @@ class TaskRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-def normalize_payload(task_type: TaskType, payload: dict[str, Any]) -> dict[str, Any]:
-    schema = PAYLOAD_SCHEMAS[task_type]
-    return schema.model_validate(payload).model_dump()
+class EchoTaskRead(TaskReadBase):
+    type: Literal[TaskType.ECHO]
+    payload: EchoPayload
 
 
-class TaskCreate(BaseModel):
+class WaitTaskRead(TaskReadBase):
+    type: Literal[TaskType.WAIT]
+    payload: WaitPayload
+
+
+class ComputeHashTaskRead(TaskReadBase):
+    type: Literal[TaskType.COMPUTE_HASH]
+    payload: ComputeHashPayload
+
+
+class RandomFailTaskRead(TaskReadBase):
+    type: Literal[TaskType.RANDOM_FAIL]
+    payload: RandomFailPayload
+
+
+class CountPrimesTaskRead(TaskReadBase):
+    type: Literal[TaskType.COUNT_PRIMES]
+    payload: CountPrimesPayload
+
+
+TaskRead = Annotated[
+    (
+        EchoTaskRead
+        | WaitTaskRead
+        | ComputeHashTaskRead
+        | RandomFailTaskRead
+        | CountPrimesTaskRead
+    ),
+    Field(discriminator="type"),
+]
+
+
+class TaskCreateBase(BaseModel):
     queue_id: int
-    type: TaskType
-    payload: dict[str, Any]
     max_attempts: int = Field(default=1, ge=1, le=10)
 
-    @model_validator(mode="after")
-    def validate_payload_for_type(self) -> "TaskCreate":
-        self.payload = normalize_payload(self.type, self.payload)
-        return self
+
+class EchoTaskCreate(TaskCreateBase):
+    type: Literal[TaskType.ECHO]
+    payload: EchoPayload
+
+
+class WaitTaskCreate(TaskCreateBase):
+    type: Literal[TaskType.WAIT]
+    payload: WaitPayload
+
+
+class ComputeHashTaskCreate(TaskCreateBase):
+    type: Literal[TaskType.COMPUTE_HASH]
+    payload: ComputeHashPayload
+
+
+class RandomFailTaskCreate(TaskCreateBase):
+    type: Literal[TaskType.RANDOM_FAIL]
+    payload: RandomFailPayload
+
+
+class CountPrimesTaskCreate(TaskCreateBase):
+    type: Literal[TaskType.COUNT_PRIMES]
+    payload: CountPrimesPayload
+
+
+TaskCreate = Annotated[
+    (
+        EchoTaskCreate
+        | WaitTaskCreate
+        | ComputeHashTaskCreate
+        | RandomFailTaskCreate
+        | CountPrimesTaskCreate
+    ),
+    Field(discriminator="type"),
+]

@@ -4,8 +4,9 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "Node",
+    "outDir": "./.vite/tsconfig-node",
+    "tsBuildInfoFile": "./.vite/tsconfig.node.tsbuildinfo",
     "allowSyntheticDefaultImports": true
   },
   "include": ["vite.config.ts"]
 }
-
