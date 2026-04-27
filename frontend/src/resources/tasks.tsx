@@ -1,5 +1,6 @@
 import CancelIcon from "@mui/icons-material/Cancel";
 import ReplayIcon from "@mui/icons-material/Replay";
+import type { MouseEvent } from "react";
 import {
   Button,
   Create,
@@ -60,7 +61,9 @@ function TaskCommandButton({ command }: { command: "cancel" | "retry" }) {
       : !["queued", "running"].includes(record.status)
     : false;
 
-  const handleClick = async () => {
+  const handleClick = async (event: MouseEvent) => {
+    event.stopPropagation();
+
     if (!record) {
       return;
     }
