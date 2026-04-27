@@ -136,6 +136,25 @@ cd backend
 pytest
 ```
 
+There are also Playwright e2e tests that exercise the real API, database,
+Redis broker, and Celery worker through queue/task workflows:
+
+```bash
+docker compose up --build
+cd frontend
+npm run test:e2e
+```
+
+The tests expect the API at `http://localhost:8000/api` by default. Override it
+with `E2E_API_URL` when using a custom port:
+
+```bash
+E2E_API_URL=http://localhost:18000/api npm run test:e2e
+```
+
+The concurrent submission test creates 20 tasks by default. Override that with
+`E2E_STRESS_TASKS`.
+
 ## Time Spent
 
 Approximately 4 hours for the intended assignment implementation scope.

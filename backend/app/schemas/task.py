@@ -26,6 +26,18 @@ class CountPrimesPayload(BaseModel):
     n: int = Field(ge=0, le=200_000)
 
 
+class JsonTransformPayload(BaseModel):
+    input: dict[str, Any]
+    select_keys: list[str] | None = Field(default=None, min_length=1, max_length=100)
+    rename_keys: dict[str, str] = Field(default_factory=dict, max_length=100)
+
+
+class BatchFanoutPayload(BaseModel):
+    child_count: int = Field(ge=1, le=100)
+    message_prefix: str = Field(min_length=1, max_length=1_000)
+    child_max_attempts: int = Field(default=1, ge=1, le=10)
+
+
 class TaskReadBase(BaseModel):
     id: int
     queue_id: int
@@ -68,6 +80,16 @@ class CountPrimesTaskRead(TaskReadBase):
     payload: CountPrimesPayload
 
 
+class JsonTransformTaskRead(TaskReadBase):
+    type: Literal[TaskType.JSON_TRANSFORM]
+    payload: JsonTransformPayload
+
+
+class BatchFanoutTaskRead(TaskReadBase):
+    type: Literal[TaskType.BATCH_FANOUT]
+    payload: BatchFanoutPayload
+
+
 TaskRead = Annotated[
     (
         EchoTaskRead
@@ -75,6 +97,8 @@ TaskRead = Annotated[
         | ComputeHashTaskRead
         | RandomFailTaskRead
         | CountPrimesTaskRead
+        | JsonTransformTaskRead
+        | BatchFanoutTaskRead
     ),
     Field(discriminator="type"),
 ]
@@ -110,6 +134,16 @@ class CountPrimesTaskCreate(TaskCreateBase):
     payload: CountPrimesPayload
 
 
+class JsonTransformTaskCreate(TaskCreateBase):
+    type: Literal[TaskType.JSON_TRANSFORM]
+    payload: JsonTransformPayload
+
+
+class BatchFanoutTaskCreate(TaskCreateBase):
+    type: Literal[TaskType.BATCH_FANOUT]
+    payload: BatchFanoutPayload
+
+
 TaskCreate = Annotated[
     (
         EchoTaskCreate
@@ -117,6 +151,8 @@ TaskCreate = Annotated[
         | ComputeHashTaskCreate
         | RandomFailTaskCreate
         | CountPrimesTaskCreate
+        | JsonTransformTaskCreate
+        | BatchFanoutTaskCreate
     ),
     Field(discriminator="type"),
 ]

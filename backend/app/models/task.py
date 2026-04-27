@@ -9,6 +9,7 @@ from app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.queue import QueueModel
+    from app.models.task_result import TaskResultModel
 
 
 class TaskModel(Base):
@@ -62,6 +63,11 @@ class TaskModel(Base):
     )
 
     queue: Mapped["QueueModel"] = relationship(init=False, back_populates="tasks")
+    results: Mapped[list["TaskResultModel"]] = relationship(
+        init=False,
+        back_populates="task",
+        cascade="all, delete-orphan",
+    )
 
     def store_celery_task_id(self, celery_task_id: str) -> None:
         self.celery_task_id = celery_task_id
