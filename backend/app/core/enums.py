@@ -16,6 +16,7 @@ class TaskType(str, Enum):
     RANDOM_FAIL = "random_fail"
     COUNT_PRIMES = "count_primes"
     JSON_TRANSFORM = "json_transform"
+    BATCH_FANOUT = "batch_fanout"
 
 
 ACTIVE_STATUSES = {TaskStatus.QUEUED.value, TaskStatus.RUNNING.value}

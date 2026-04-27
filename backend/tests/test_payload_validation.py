@@ -2,7 +2,14 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from app.schemas.queue import QueueCreate
-from app.schemas.task import EchoTaskRead, JsonTransformTaskCreate, TaskCreate, TaskRead, WaitTaskCreate
+from app.schemas.task import (
+    BatchFanoutTaskCreate,
+    EchoTaskRead,
+    JsonTransformTaskCreate,
+    TaskCreate,
+    TaskRead,
+    WaitTaskCreate,
+)
 
 TASK_CREATE_ADAPTER = TypeAdapter(TaskCreate)
 TASK_READ_ADAPTER = TypeAdapter(TaskRead)
@@ -45,6 +52,25 @@ def test_discriminates_json_transform_payload_by_type() -> None:
     assert task.payload.input == {"id": 1, "name": "alpha", "ignored": True}
     assert task.payload.select_keys == ["id", "name"]
     assert task.payload.rename_keys == {"id": "task_id"}
+
+
+def test_discriminates_batch_fanout_payload_by_type() -> None:
+    task = TASK_CREATE_ADAPTER.validate_python(
+        {
+            "queue_id": 1,
+            "type": "batch_fanout",
+            "payload": {
+                "child_count": 3,
+                "message_prefix": "batch",
+                "child_max_attempts": 2,
+            },
+        }
+    )
+
+    assert isinstance(task, BatchFanoutTaskCreate)
+    assert task.payload.child_count == 3
+    assert task.payload.message_prefix == "batch"
+    assert task.payload.child_max_attempts == 2
 
 
 def test_discriminates_task_read_payload_by_type() -> None:

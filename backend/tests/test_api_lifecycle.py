@@ -275,6 +275,44 @@ def test_json_transform_task_selects_and_renames_keys(
     assert result == {"output": {"task_id": 7, "name": "alpha"}}
 
 
+def test_batch_fanout_task_creates_and_dispatches_child_tasks(
+    client: TestClient,
+    db_session: Session,
+    dispatcher: Any,
+) -> None:
+    queue = create_queue(client)
+    task = create_task(
+        client,
+        queue["id"],
+        task_type="batch_fanout",
+        payload={
+            "child_count": 3,
+            "message_prefix": "batch",
+            "child_max_attempts": 2,
+        },
+    )
+
+    result = TaskExecutionService(
+        db_session,
+        retry=fail_unexpected_retry,
+        task_dispatcher=dispatcher,
+    ).execute(task["id"])
+
+    child_ids = result["child_task_ids"]
+    children = db_session.scalars(select(TaskModel).where(TaskModel.id.in_(child_ids)).order_by(TaskModel.id)).all()
+
+    assert result == {"child_count": 3, "child_task_ids": child_ids}
+    assert dispatcher.enqueued == [task["id"], *child_ids]
+    assert [child.type for child in children] == ["echo", "echo", "echo"]
+    assert [child.payload for child in children] == [
+        {"message": "batch 1"},
+        {"message": "batch 2"},
+        {"message": "batch 3"},
+    ]
+    assert [child.max_attempts for child in children] == [2, 2, 2]
+    assert all(child.celery_task_id for child in children)
+
+
 def test_create_task_dispatch_failure_returns_503_and_persists_failed_metadata(
     client: TestClient,
     db_session: Session,

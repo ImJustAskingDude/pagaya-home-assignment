@@ -37,6 +37,7 @@ const taskTypeChoices = [
   { id: "random_fail", name: "random_fail" },
   { id: "count_primes", name: "count_primes" },
   { id: "json_transform", name: "json_transform" },
+  { id: "batch_fanout", name: "batch_fanout" },
 ];
 
 const statusChoices = [
@@ -177,6 +178,14 @@ function PayloadInputs() {
                 <TextInput source="payload.rename_keys" label="Rename map" fullWidth multiline />
               </>
             );
+          case "batch_fanout":
+            return (
+              <>
+                <NumberInput source="payload.child_count" label="Child count" min={1} max={100} required />
+                <TextInput source="payload.message_prefix" label="Message prefix" required fullWidth />
+                <NumberInput source="payload.child_max_attempts" label="Child max attempts" min={1} max={10} required />
+              </>
+            );
           case "echo":
           default:
             return <TextInput source="payload.message" label="Message" required fullWidth multiline />;
@@ -261,6 +270,9 @@ export function TaskCreate() {
             input: "{}",
             select_keys: "",
             rename_keys: "{}",
+            child_count: 3,
+            message_prefix: "child",
+            child_max_attempts: 1,
           },
         }}
       >

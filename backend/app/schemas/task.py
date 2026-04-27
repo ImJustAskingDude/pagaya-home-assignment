@@ -32,6 +32,12 @@ class JsonTransformPayload(BaseModel):
     rename_keys: dict[str, str] = Field(default_factory=dict, max_length=100)
 
 
+class BatchFanoutPayload(BaseModel):
+    child_count: int = Field(ge=1, le=100)
+    message_prefix: str = Field(min_length=1, max_length=1_000)
+    child_max_attempts: int = Field(default=1, ge=1, le=10)
+
+
 class TaskReadBase(BaseModel):
     id: int
     queue_id: int
@@ -79,6 +85,11 @@ class JsonTransformTaskRead(TaskReadBase):
     payload: JsonTransformPayload
 
 
+class BatchFanoutTaskRead(TaskReadBase):
+    type: Literal[TaskType.BATCH_FANOUT]
+    payload: BatchFanoutPayload
+
+
 TaskRead = Annotated[
     (
         EchoTaskRead
@@ -87,6 +98,7 @@ TaskRead = Annotated[
         | RandomFailTaskRead
         | CountPrimesTaskRead
         | JsonTransformTaskRead
+        | BatchFanoutTaskRead
     ),
     Field(discriminator="type"),
 ]
@@ -127,6 +139,11 @@ class JsonTransformTaskCreate(TaskCreateBase):
     payload: JsonTransformPayload
 
 
+class BatchFanoutTaskCreate(TaskCreateBase):
+    type: Literal[TaskType.BATCH_FANOUT]
+    payload: BatchFanoutPayload
+
+
 TaskCreate = Annotated[
     (
         EchoTaskCreate
@@ -135,6 +152,7 @@ TaskCreate = Annotated[
         | RandomFailTaskCreate
         | CountPrimesTaskCreate
         | JsonTransformTaskCreate
+        | BatchFanoutTaskCreate
     ),
     Field(discriminator="type"),
 ]
