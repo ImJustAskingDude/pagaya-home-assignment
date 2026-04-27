@@ -94,7 +94,10 @@ Main resources:
 - `POST /api/tasks/{id}/retry`
 - `DELETE /api/tasks/{id}`
 
-List endpoints accept `offset`, `limit`, `sort`, `order`, and `filter` query parameters. This matches the custom React Admin data provider.
+List endpoints accept `offset`, `limit`, resource-specific filter query parameters, and `order_by`.
+Filtering uses `fastapi-filter` syntax, for example
+`GET /api/tasks?status=queued&type=echo&order_by=-created_at` or
+`GET /api/tasks?id__in=1,2,3`. This matches the custom React Admin data provider.
 
 ## Design Choices
 

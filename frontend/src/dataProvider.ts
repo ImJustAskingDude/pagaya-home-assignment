@@ -49,12 +49,24 @@ const buildListQuery = (params: ListQueryParams) => {
   const search = new URLSearchParams({
     offset: String((page - 1) * perPage),
     limit: String(perPage),
-    sort: field,
-    order,
-    filter: JSON.stringify(params.filter ?? {}),
+    order_by: order.toUpperCase() === "DESC" ? `-${field}` : field,
   });
 
+  appendFilters(search, params.filter ?? {});
+
   return search.toString();
+};
+
+const appendFilters = (search: URLSearchParams, filters: Record<string, unknown>) => {
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    const apiKey = key === "ids" ? "id__in" : key;
+    const apiValue = Array.isArray(value) ? value.join(",") : String(value);
+    search.set(apiKey, apiValue);
+  });
 };
 
 export const dataProvider: DataProvider = {
@@ -79,7 +91,7 @@ export const dataProvider: DataProvider = {
   ): Promise<GetManyResult<RecordType>> {
     const query = new URLSearchParams({
       limit: "100",
-      filter: JSON.stringify({ ids: params.ids }),
+      id__in: params.ids.join(","),
     });
     const { json } = await httpClient(`${apiUrl}/${resource}?${query.toString()}`);
     const response = json as ApiListResponse<RecordType>;

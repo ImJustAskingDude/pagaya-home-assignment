@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -8,19 +7,9 @@ from app.core.enums import ACTIVE_STATUSES, TaskStatus
 from app.models.queue import QueueModel
 from app.models.task import TaskModel
 from app.schemas.task import TaskCreate
+from app.services.query import TaskFilter
 from app.services.dispatcher import dispatcher
 from app.services.errors import ConflictError, DispatchError, NotFoundError
-
-TASK_SORT_FIELDS = {
-    "id": TaskModel.id,
-    "queue_id": TaskModel.queue_id,
-    "type": TaskModel.type,
-    "status": TaskModel.status,
-    "attempts": TaskModel.attempts,
-    "created_at": TaskModel.created_at,
-    "started_at": TaskModel.started_at,
-    "finished_at": TaskModel.finished_at,
-}
 
 
 class TaskService:
@@ -31,38 +20,13 @@ class TaskService:
         self,
         offset: int,
         limit: int,
-        sort: str,
-        order: str,
-        filters: dict[str, Any],
+        filters: TaskFilter,
     ) -> tuple[list[TaskModel], int]:
-        sort_column = TASK_SORT_FIELDS.get(sort, TaskModel.id)
-        if order.upper() == "DESC":
-            sort_column = sort_column.desc()
-
-        statement = select(TaskModel)
-        count_statement = select(func.count()).select_from(TaskModel)
-
-        queue_id = filters.get("queue_id")
-        status = filters.get("status")
-        task_type = filters.get("type")
-        ids = filters.get("ids")
-
-        conditions = []
-        if isinstance(ids, list) and ids:
-            conditions.append(TaskModel.id.in_([int(task_id) for task_id in ids]))
-        if queue_id:
-            conditions.append(TaskModel.queue_id == int(queue_id))
-        if status:
-            conditions.append(TaskModel.status == str(status))
-        if task_type:
-            conditions.append(TaskModel.type == str(task_type))
-
-        if conditions:
-            statement = statement.where(*conditions)
-            count_statement = count_statement.where(*conditions)
+        statement = filters.filter(select(TaskModel))
+        count_statement = filters.filter(select(func.count()).select_from(TaskModel))
 
         total = self.session.scalar(count_statement) or 0
-        items = self.session.scalars(statement.order_by(sort_column).offset(offset).limit(limit)).all()
+        items = self.session.scalars(filters.sort(statement).offset(offset).limit(limit)).all()
         return list(items), total
 
     def get(self, task_id: int) -> TaskModel:

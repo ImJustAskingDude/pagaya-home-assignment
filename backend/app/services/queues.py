@@ -1,5 +1,3 @@
-from typing import Any
-
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -9,13 +7,7 @@ from app.models.queue import QueueModel
 from app.models.task import TaskModel
 from app.schemas.queue import QueueCreate, QueueUpdate
 from app.services.errors import ConflictError, NotFoundError
-
-QUEUE_SORT_FIELDS = {
-    "id": QueueModel.id,
-    "name": QueueModel.name,
-    "created_at": QueueModel.created_at,
-    "updated_at": QueueModel.updated_at,
-}
+from app.services.query import QueueFilter
 
 
 class QueueService:
@@ -26,32 +18,13 @@ class QueueService:
         self,
         offset: int,
         limit: int,
-        sort: str,
-        order: str,
-        filters: dict[str, Any],
+        filters: QueueFilter,
     ) -> tuple[list[QueueModel], int]:
-        sort_column = QUEUE_SORT_FIELDS.get(sort, QueueModel.id)
-        if order.upper() == "DESC":
-            sort_column = sort_column.desc()
-
-        statement = select(QueueModel)
-        count_statement = select(func.count()).select_from(QueueModel)
-        conditions = []
-
-        ids = filters.get("ids")
-        if isinstance(ids, list) and ids:
-            conditions.append(QueueModel.id.in_([int(queue_id) for queue_id in ids]))
-
-        name = filters.get("name")
-        if name:
-            conditions.append(QueueModel.name.ilike(f"%{name}%"))
-
-        if conditions:
-            statement = statement.where(*conditions)
-            count_statement = count_statement.where(*conditions)
+        statement = filters.filter(select(QueueModel))
+        count_statement = filters.filter(select(func.count()).select_from(QueueModel))
 
         total = self.session.scalar(count_statement) or 0
-        items = self.session.scalars(statement.order_by(sort_column).offset(offset).limit(limit)).all()
+        items = self.session.scalars(filters.sort(statement).offset(offset).limit(limit)).all()
         return list(items), total
 
     def get(self, queue_id: int) -> QueueModel:

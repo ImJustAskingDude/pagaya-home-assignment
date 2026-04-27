@@ -1,35 +1,40 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response
+from fastapi_filter import FilterDepends
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import raise_http_error
+from app.api.dependencies import raise_http_error, reject_unknown_query_params
 from app.core.database import get_session
 from app.schemas.common import ListResponse
 from app.schemas.queue import QueueCreate, QueueRead, QueueUpdate
 from app.services.errors import ConflictError, NotFoundError
-from app.services.query import parse_filters
+from app.services.query import QueueFilter
 from app.services.queues import QueueService
 
 router = APIRouter(prefix="/queues", tags=["queues"])
+validate_queue_list_query = reject_unknown_query_params(
+    "offset",
+    "limit",
+    "id__in",
+    "name",
+    "order_by",
+)
 
 
 @router.get("", response_model=ListResponse[QueueRead])
 def list_queues(
     response: Response,
     session: Annotated[Session, Depends(get_session)],
+    _: Annotated[None, Depends(validate_queue_list_query)],
+    filters: Annotated[QueueFilter, FilterDepends(QueueFilter)],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=1000)] = 25,
-    sort: Annotated[str, Query()] = "id",
-    order: Annotated[str, Query()] = "ASC",
-    filter: Annotated[str | None, Query()] = None,
 ) -> ListResponse[QueueRead]:
     items, total = QueueService(session).list(
         offset=offset,
         limit=limit,
-        sort=sort,
-        order=order,
-        filters=parse_filters(filter),
+        filters=filters,
     )
     response.headers["X-Total-Count"] = str(total)
     return ListResponse(items=items, total=total)

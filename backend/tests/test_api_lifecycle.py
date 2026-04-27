@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -41,11 +40,26 @@ def test_queue_crud_lists_with_total_count_and_blocks_active_delete(client: Test
 
     assert alpha["name"] == "alpha"
 
-    list_response = client.get("/api/queues", params={"sort": "name", "order": "ASC", "limit": 1})
+    list_response = client.get("/api/queues", params={"order_by": "name", "limit": 1})
     assert list_response.status_code == 200
     assert list_response.headers["X-Total-Count"] == "2"
     assert list_response.json()["total"] == 2
     assert [queue["name"] for queue in list_response.json()["items"]] == ["alpha"]
+
+    many_response = client.get(
+        "/api/queues",
+        params={"id__in": f"{alpha['id']},{beta['id']}", "order_by": "id"},
+    )
+    assert many_response.status_code == 200
+    assert many_response.json()["total"] == 2
+
+    name_filter_response = client.get("/api/queues", params={"name": "lph"})
+    assert name_filter_response.status_code == 200
+    assert name_filter_response.json()["total"] == 1
+    assert name_filter_response.json()["items"][0]["id"] == alpha["id"]
+
+    unknown_filter_response = client.get("/api/queues", params={"not_a_filter": "value"})
+    assert unknown_filter_response.status_code == 422
 
     update_response = client.put(f"/api/queues/{alpha['id']}", json={"name": "critical"})
     assert update_response.status_code == 200
@@ -92,13 +106,9 @@ def test_task_create_list_cancel_and_delete_flow(client: TestClient, dispatcher:
     list_response = client.get(
         "/api/tasks",
         params={
-            "filter": json.dumps(
-                {
-                    "queue_id": queue["id"],
-                    "status": TaskStatus.QUEUED.value,
-                    "type": "echo",
-                }
-            )
+            "queue_id": queue["id"],
+            "status": TaskStatus.QUEUED.value,
+            "type": "echo",
         },
     )
     assert list_response.status_code == 200
@@ -108,10 +118,19 @@ def test_task_create_list_cancel_and_delete_flow(client: TestClient, dispatcher:
 
     react_admin_large_page = client.get(
         "/api/tasks",
-        params={"limit": 1000, "sort": "created_at", "order": "DESC", "filter": json.dumps({})},
+        params={"limit": 1000, "order_by": "-created_at"},
     )
     assert react_admin_large_page.status_code == 200
     assert react_admin_large_page.json()["total"] == 1
+
+    invalid_filter = client.get("/api/tasks", params={"status": "not-a-status"})
+    assert invalid_filter.status_code == 422
+
+    invalid_sort = client.get("/api/tasks", params={"order_by": "not_a_field"})
+    assert invalid_sort.status_code == 422
+
+    unknown_filter = client.get("/api/tasks", params={"not_a_filter": "value"})
+    assert unknown_filter.status_code == 422
 
     active_delete = client.delete(f"/api/tasks/{task['id']}")
     assert active_delete.status_code == 409
