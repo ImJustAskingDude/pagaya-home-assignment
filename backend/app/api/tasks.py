@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
@@ -15,11 +17,11 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 @router.get("", response_model=ListResponse[TaskRead])
 def list_tasks(
     response: Response,
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=25, ge=1, le=1000),
-    sort: str = Query(default="id"),
-    order: str = Query(default="ASC"),
-    filter: str | None = Query(default=None),
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 25,
+    sort: Annotated[str, Query()] = "id",
+    order: Annotated[str, Query()] = "ASC",
+    filter: Annotated[str | None, Query()] = None,
     session: Session = Depends(get_session),
 ) -> ListResponse[TaskRead]:
     items, total = TaskService(session).list(
