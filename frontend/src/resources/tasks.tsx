@@ -57,7 +57,7 @@ function TaskCommandButton({ command }: { command: "cancel" | "retry" }) {
   const enabled = record
     ? isCancel
       ? ["queued", "running"].includes(record.status)
-      : ["failed", "cancelled"].includes(record.status)
+      : !["queued", "running"].includes(record.status)
     : false;
 
   const handleClick = async () => {

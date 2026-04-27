@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.core.enums import ACTIVE_STATUSES, TaskStatus
+from app.core.enums import ACTIVE_STATUSES, TERMINAL_STATUSES
 from app.models.task import TaskModel
 from app.repositories.filters import TaskFilter
 from app.repositories.queues import QueueRepository
@@ -76,8 +76,8 @@ class TaskService:
 
     def retry(self, task_id: int) -> TaskModel:
         task = self.get(task_id)
-        if task.status not in {TaskStatus.FAILED.value, TaskStatus.CANCELLED.value}:
-            raise ConflictError("Only failed or cancelled tasks can be retried")
+        if task.status not in TERMINAL_STATUSES:
+            raise ConflictError("Only finished tasks can be retried")
 
         with self.unit_of_work:
             task.reset_for_retry()

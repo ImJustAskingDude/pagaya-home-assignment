@@ -154,7 +154,7 @@ def test_task_create_list_cancel_and_delete_flow(client: TestClient, dispatcher:
     assert missing_response.status_code == 404
 
 
-def test_retry_rejects_active_tasks_and_resets_failed_task_for_new_dispatch(
+def test_retry_rejects_active_tasks_and_resets_finished_task_for_new_dispatch(
     client: TestClient,
     db_session: Session,
     dispatcher: Any,
@@ -164,14 +164,14 @@ def test_retry_rejects_active_tasks_and_resets_failed_task_for_new_dispatch(
 
     conflict_response = client.post(f"/api/tasks/{task['id']}/retry")
     assert conflict_response.status_code == 409
-    assert conflict_response.json()["detail"] == "Only failed or cancelled tasks can be retried"
+    assert conflict_response.json()["detail"] == "Only finished tasks can be retried"
 
     now = datetime.now(timezone.utc)
     task_model = db_session.get(TaskModel, task["id"])
     assert task_model is not None
-    task_model.status = TaskStatus.FAILED.value
-    task_model.result = {"partial": True}
-    task_model.error = "handler failed"
+    task_model.status = TaskStatus.SUCCEEDED.value
+    task_model.result = {"message": "done"}
+    task_model.error = None
     task_model.attempts = 2
     task_model.started_at = now
     task_model.finished_at = now

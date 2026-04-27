@@ -163,7 +163,7 @@ test("executes each supported task type end to end", async ({ request }) => {
   }
 });
 
-test("blocks active deletion, cancels active tasks, and retries failed tasks", async ({ request }) => {
+test("blocks active deletion, cancels active tasks, and retries finished tasks", async ({ request }) => {
   const taskIds: number[] = [];
   let queueId: number | undefined;
 
@@ -218,6 +218,30 @@ test("blocks active deletion, cancels active tasks, and retries failed tasks", a
     );
     expect(retried.attempts).toBe(1);
     expect(retried.error).toContain("Random failure at probability 1");
+
+    const successful = await createTask(request, {
+      queue_id: queue.id,
+      type: "echo",
+      payload: { message: `retry-success-${runId}` },
+    });
+    taskIds.push(successful.id);
+
+    const succeeded = await waitForTask(
+      request,
+      successful.id,
+      (current) => current.status === "succeeded",
+      `task ${successful.id} to succeed`,
+    );
+    expect(succeeded.result).toEqual({ message: `retry-success-${runId}` });
+
+    await jsonOk<TaskRecord>(await request.post(`tasks/${successful.id}/retry`));
+    const retriedSuccess = await waitForTask(
+      request,
+      successful.id,
+      (current) => current.status === "succeeded" && current.celery_task_id !== succeeded.celery_task_id,
+      `task ${successful.id} retry to succeed again`,
+    );
+    expect(retriedSuccess.result).toEqual({ message: `retry-success-${runId}` });
   } finally {
     await cleanupTasks(request, taskIds);
     if (queueId !== undefined) {
