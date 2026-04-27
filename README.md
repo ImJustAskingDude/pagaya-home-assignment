@@ -26,7 +26,7 @@ The full project-scoped conversation transcript is included in [`CONVERSATION_TR
 - Queue execution: Celery
 - Broker/result backend: Redis
 - Database: PostgreSQL
-- Frontend: React Admin, Vite, TypeScript, Material UI
+- Frontend: React 19, React Admin, Vite, TypeScript, Material UI
 - Local infra: Docker Compose
 
 ## Run Locally
