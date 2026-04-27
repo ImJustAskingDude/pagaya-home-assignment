@@ -1,5 +1,6 @@
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
+import MemoryIcon from "@mui/icons-material/Memory";
 import QueueIcon from "@mui/icons-material/Queue";
 import { Admin, Resource } from "react-admin";
 
@@ -8,6 +9,7 @@ import { NotificationCenterProvider } from "./components/NotificationCenter";
 import { dataProvider } from "./dataProvider";
 import { QueueCreate, QueueEdit, QueueList, QueueShow } from "./resources/queues";
 import { TaskCreate, TaskList, TaskResultList, TaskShow } from "./resources/tasks";
+import { WorkerList } from "./resources/workers";
 
 export function App() {
   return (
@@ -28,6 +30,7 @@ export function App() {
           icon={FactCheckIcon}
           options={{ label: "Task Results" }}
         />
+        <Resource name="workers" list={WorkerList} icon={MemoryIcon} />
       </Admin>
     </NotificationCenterProvider>
   );
