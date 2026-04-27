@@ -36,6 +36,7 @@ const taskTypeChoices = [
   { id: "compute_hash", name: "compute_hash" },
   { id: "random_fail", name: "random_fail" },
   { id: "count_primes", name: "count_primes" },
+  { id: "json_transform", name: "json_transform" },
 ];
 
 const statusChoices = [
@@ -49,6 +50,63 @@ const statusChoices = [
 type TaskRecord = {
   id: number;
   status: string;
+};
+
+type TaskCreateFormData = {
+  type?: string;
+  payload?: Record<string, unknown>;
+};
+
+const parseJsonValue = (value: unknown, fallback: unknown) => {
+  if (typeof value !== "string") {
+    return value ?? fallback;
+  }
+
+  if (value.trim() === "") {
+    return fallback;
+  }
+
+  return JSON.parse(value);
+};
+
+const parseJsonObject = (value: unknown, fallback: Record<string, unknown>) => {
+  const parsed = parseJsonValue(value, fallback);
+
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
+    throw new Error("Expected JSON object");
+  }
+
+  return parsed as Record<string, unknown>;
+};
+
+const parseJsonArray = (value: unknown) => {
+  const parsed = parseJsonValue(value, null);
+
+  if (parsed === null) {
+    return null;
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("Expected JSON array");
+  }
+
+  return parsed;
+};
+
+const transformTaskCreate = (data: TaskCreateFormData) => {
+  if (data.type !== "json_transform") {
+    return data;
+  }
+
+  const payload = data.payload ?? {};
+  return {
+    ...data,
+    payload: {
+      input: parseJsonObject(payload.input, {}),
+      select_keys: parseJsonArray(payload.select_keys),
+      rename_keys: parseJsonObject(payload.rename_keys, {}),
+    },
+  };
 };
 
 function TaskCommandButton({ command }: { command: "cancel" | "retry" }) {
@@ -111,6 +169,14 @@ function PayloadInputs() {
             return <NumberInput source="payload.probability" label="Failure probability" min={0} max={1} required />;
           case "count_primes":
             return <NumberInput source="payload.n" label="Count primes up to" min={0} max={200000} required />;
+          case "json_transform":
+            return (
+              <>
+                <TextInput source="payload.input" label="Input JSON" required fullWidth multiline />
+                <TextInput source="payload.select_keys" label="Select keys" fullWidth multiline />
+                <TextInput source="payload.rename_keys" label="Rename map" fullWidth multiline />
+              </>
+            );
           case "echo":
           default:
             return <TextInput source="payload.message" label="Message" required fullWidth multiline />;
@@ -185,8 +251,19 @@ export function TaskResultList() {
 
 export function TaskCreate() {
   return (
-    <Create redirect="show">
-      <SimpleForm defaultValues={{ type: "echo", max_attempts: 1, payload: { message: "" } }}>
+    <Create redirect="show" transform={transformTaskCreate}>
+      <SimpleForm
+        defaultValues={{
+          type: "echo",
+          max_attempts: 1,
+          payload: {
+            message: "",
+            input: "{}",
+            select_keys: "",
+            rename_keys: "{}",
+          },
+        }}
+      >
         <ReferenceInput source="queue_id" reference="queues">
           <SelectInput optionText="name" required />
         </ReferenceInput>

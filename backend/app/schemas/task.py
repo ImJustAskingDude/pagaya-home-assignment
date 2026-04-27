@@ -26,6 +26,12 @@ class CountPrimesPayload(BaseModel):
     n: int = Field(ge=0, le=200_000)
 
 
+class JsonTransformPayload(BaseModel):
+    input: dict[str, Any]
+    select_keys: list[str] | None = Field(default=None, min_length=1, max_length=100)
+    rename_keys: dict[str, str] = Field(default_factory=dict, max_length=100)
+
+
 class TaskReadBase(BaseModel):
     id: int
     queue_id: int
@@ -68,6 +74,11 @@ class CountPrimesTaskRead(TaskReadBase):
     payload: CountPrimesPayload
 
 
+class JsonTransformTaskRead(TaskReadBase):
+    type: Literal[TaskType.JSON_TRANSFORM]
+    payload: JsonTransformPayload
+
+
 TaskRead = Annotated[
     (
         EchoTaskRead
@@ -75,6 +86,7 @@ TaskRead = Annotated[
         | ComputeHashTaskRead
         | RandomFailTaskRead
         | CountPrimesTaskRead
+        | JsonTransformTaskRead
     ),
     Field(discriminator="type"),
 ]
@@ -110,6 +122,11 @@ class CountPrimesTaskCreate(TaskCreateBase):
     payload: CountPrimesPayload
 
 
+class JsonTransformTaskCreate(TaskCreateBase):
+    type: Literal[TaskType.JSON_TRANSFORM]
+    payload: JsonTransformPayload
+
+
 TaskCreate = Annotated[
     (
         EchoTaskCreate
@@ -117,6 +134,7 @@ TaskCreate = Annotated[
         | ComputeHashTaskCreate
         | RandomFailTaskCreate
         | CountPrimesTaskCreate
+        | JsonTransformTaskCreate
     ),
     Field(discriminator="type"),
 ]

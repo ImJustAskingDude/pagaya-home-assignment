@@ -20,6 +20,7 @@ def create_queue(client: TestClient, name: str = "default") -> dict[str, Any]:
 def create_task(
     client: TestClient,
     queue_id: int,
+    task_type: str = "echo",
     payload: dict[str, Any] | None = None,
     max_attempts: int = 1,
 ) -> dict[str, Any]:
@@ -27,7 +28,7 @@ def create_task(
         "/api/tasks",
         json={
             "queue_id": queue_id,
-            "type": "echo",
+            "type": task_type,
             "payload": payload or {"message": "hello"},
             "max_attempts": max_attempts,
         },
@@ -251,6 +252,27 @@ def test_task_results_preserve_each_finished_retry(
         {"message": "history"},
         {"message": "history"},
     ]
+
+
+def test_json_transform_task_selects_and_renames_keys(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    queue = create_queue(client)
+    task = create_task(
+        client,
+        queue["id"],
+        task_type="json_transform",
+        payload={
+            "input": {"id": 7, "name": "alpha", "ignored": True},
+            "select_keys": ["id", "name"],
+            "rename_keys": {"id": "task_id"},
+        },
+    )
+
+    result = TaskExecutionService(db_session, retry=fail_unexpected_retry).execute(task["id"])
+
+    assert result == {"output": {"task_id": 7, "name": "alpha"}}
 
 
 def test_create_task_dispatch_failure_returns_503_and_persists_failed_metadata(

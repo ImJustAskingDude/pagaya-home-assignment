@@ -60,6 +60,22 @@ def count_primes(payload: dict[str, Any], is_cancel_requested: CancelCheck) -> T
     return {"n": limit, "prime_count": count}
 
 
+def json_transform(payload: dict[str, Any], is_cancel_requested: CancelCheck) -> TaskResult:
+    input_data = payload["input"]
+    select_keys = payload.get("select_keys")
+    rename_keys = payload.get("rename_keys") or {}
+    keys = select_keys if select_keys is not None else input_data.keys()
+
+    output = {}
+    for key in keys:
+        _raise_if_cancelled(is_cancel_requested)
+        if key in input_data:
+            output[rename_keys.get(key, key)] = input_data[key]
+
+    _raise_if_cancelled(is_cancel_requested)
+    return {"output": output}
+
+
 def _is_prime(number: int) -> bool:
     if number < 2:
         return False
@@ -82,9 +98,9 @@ HANDLERS: dict[str, TaskHandler] = {
     TaskType.COMPUTE_HASH.value: compute_hash,
     TaskType.RANDOM_FAIL.value: random_fail,
     TaskType.COUNT_PRIMES.value: count_primes,
+    TaskType.JSON_TRANSFORM.value: json_transform,
 }
 
 
 def get_handler(task_type: str) -> TaskHandler:
     return HANDLERS[task_type]
-
