@@ -35,6 +35,10 @@ Then open:
 - API docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/health
 
+The frontend container runs as `${UID:-1000}:${GID:-1000}` so files created
+through the bind mount stay owned by the host user. If your local UID/GID are
+not `1000`, start Compose with `UID=$(id -u) GID=$(id -g) docker compose up --build`.
+
 If those host ports are already in use, override them when starting Compose:
 
 ```bash

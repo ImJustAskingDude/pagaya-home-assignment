@@ -78,6 +78,10 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        UID: "${UID:-1000}"
+        GID: "${GID:-1000}"
+    user: "${UID:-1000}:${GID:-1000}"
     environment:
       VITE_API_URL: "http://localhost:${API_PORT:-8000}/api"
     command: npm run dev
