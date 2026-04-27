@@ -8,9 +8,17 @@ Small full-stack queue management system built with FastAPI, PostgreSQL, Celery,
 - Enqueue tasks into a selected queue.
 - Execute tasks asynchronously through Celery workers.
 - Store durable task metadata, payloads, results, errors, attempts, and timestamps in PostgreSQL.
+- Preserve task result history across retries.
 - Cancel queued/running tasks cooperatively.
-- Retry failed or cancelled tasks.
-- Inspect queues and tasks through a React Admin UI.
+- Retry any finished task.
+- Inspect queues, tasks, task results, and Celery workers through a React Admin UI.
+- Use built-in task creation scenarios to quickly exercise representative workflows.
+
+## How This Was Built
+
+This project was developed through an iterative review loop with Codex. The initial implementation was followed by focused review comments about API typing, Pydantic validation style, transaction boundaries, repository/service separation, task result history, UI workflow polish, and e2e coverage. Each meaningful change was made in small commits so the reasoning and code evolution are reviewable.
+
+The full project-scoped conversation transcript is included in [`CONVERSATION_TRANSCRIPT.md`](CONVERSATION_TRANSCRIPT.md). It was generated from local Codex session logs using [`export_codex_transcripts.py`](export_codex_transcripts.py), ordered by session timestamp, and filtered to this repository. Reviewers can use it to see the decisions, tradeoffs, and implementation steps that led to the final code.
 
 ## Stack
 
@@ -72,7 +80,14 @@ Task flow:
 1. API validates the request and inserts a `tasks` row with `queued` status.
 2. API enqueues a Celery job and stores the Celery task id.
 3. Worker marks the row `running`, executes the selected handler, and persists `succeeded`, `failed`, or `cancelled`.
-4. React Admin polls task data to show current status.
+4. Terminal executions are copied into `task_results`, so retries keep historical results.
+5. React Admin polls task, task result, and worker data to show current status.
+
+The backend is split into API routers, Pydantic schemas, SQLAlchemy models,
+repositories, services, and task handlers. Services own application behavior and
+use a small `UnitOfWork` wrapper for transaction boundaries. Models expose small
+domain methods for state changes such as queue rename, task retry reset, running,
+success, failure, and cancellation.
 
 ## Task Types
 
@@ -81,6 +96,12 @@ Task flow:
 - `compute_hash`: computes SHA256 for a string.
 - `random_fail`: fails based on a probability.
 - `count_primes`: counts prime numbers up to `n`.
+- `json_transform`: selects and optionally renames keys from an input JSON object.
+- `batch_fanout`: creates N child `echo` tasks on the same logical queue.
+
+The Task create form includes a `Scenario` selector with ready-to-run examples
+for `json_transform` and `batch_fanout`, so the demo flows can be exercised
+without hand-writing payloads.
 
 ## API Shape
 
@@ -97,6 +118,9 @@ Main resources:
 - `POST /api/tasks/{id}/cancel`
 - `POST /api/tasks/{id}/retry`
 - `DELETE /api/tasks/{id}`
+- `GET /api/task-results`
+- `GET /api/task-results/{id}`
+- `GET /api/workers`
 
 List endpoints accept `offset`, `limit`, resource-specific filter query parameters, and `order_by`.
 Filtering uses `fastapi-filter` syntax, for example
@@ -111,7 +135,10 @@ Filtering uses `fastapi-filter` syntax, for example
 - Cancellation is cooperative for running tasks. The API records cancellation intent; handlers check during longer work.
 - Queue deletion is blocked while queued or running tasks exist, avoiding surprising active-task deletion.
 - Active task deletion is blocked; cancel first, then delete after the task reaches a terminal state.
-- Manual retry resets a failed/cancelled task row and enqueues a new Celery execution.
+- Manual retry resets any finished task row and enqueues a new Celery execution.
+- Task results are stored separately from task state, so repeated retries preserve each execution result.
+- `batch_fanout` intentionally creates simple child `echo` tasks instead of introducing a full parent/child execution model.
+- Celery worker inspection is runtime state, so it is exposed through Celery inspect instead of persisted as a database resource.
 - ORM models use SQLAlchemy native dataclass mapping with keyword-only constructors,
   keeping application-set fields explicit while database- and worker-owned fields
   stay managed internally.
@@ -122,14 +149,15 @@ Filtering uses `fastapi-filter` syntax, for example
 - Celery task dispatch and database writes are not wrapped in a transactional outbox; that would be the next reliability improvement.
 - Add richer retry backoff/jitter policies and dead-letter handling.
 - Add worker heartbeat and stuck-task recovery.
-- Add task event history for auditability.
+- Add richer task event history for auditability.
 - Add pagination/filter polish and authentication for production use.
 - Replace polling with SSE/WebSocket updates if live status becomes important.
 
 ## Tests
 
 There are focused backend tests for payload validation, ORM constructor ergonomics,
-queue/task API lifecycle behavior, and worker model import wiring:
+queue/task API lifecycle behavior, task result preservation, worker inspection,
+and worker model import wiring:
 
 ```bash
 cd backend
@@ -157,4 +185,6 @@ The concurrent submission test creates 20 tasks by default. Override that with
 
 ## Time Spent
 
-Approximately 4 hours for the intended assignment implementation scope.
+Approximately 4 hours for the original assignment implementation scope, followed
+by additional review-driven polish, refactoring, UI improvements, and e2e
+coverage.
