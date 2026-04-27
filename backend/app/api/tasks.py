@@ -17,12 +17,12 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 @router.get("", response_model=ListResponse[TaskRead])
 def list_tasks(
     response: Response,
+    session: Annotated[Session, Depends(get_session)],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=1000)] = 25,
     sort: Annotated[str, Query()] = "id",
     order: Annotated[str, Query()] = "ASC",
     filter: Annotated[str | None, Query()] = None,
-    session: Session = Depends(get_session),
 ) -> ListResponse[TaskRead]:
     items, total = TaskService(session).list(
         offset=offset,
@@ -36,7 +36,7 @@ def list_tasks(
 
 
 @router.post("", response_model=TaskRead, status_code=201)
-def create_task(payload: TaskCreate, session: Session = Depends(get_session)) -> TaskRead:
+def create_task(payload: TaskCreate, session: Annotated[Session, Depends(get_session)]) -> TaskRead:
     try:
         return TaskService(session).create(payload)
     except (DispatchError, NotFoundError) as error:
@@ -44,7 +44,7 @@ def create_task(payload: TaskCreate, session: Session = Depends(get_session)) ->
 
 
 @router.get("/{task_id}", response_model=TaskRead)
-def get_task(task_id: int, session: Session = Depends(get_session)) -> TaskRead:
+def get_task(task_id: int, session: Annotated[Session, Depends(get_session)]) -> TaskRead:
     try:
         return TaskService(session).get(task_id)
     except NotFoundError as error:
@@ -52,7 +52,7 @@ def get_task(task_id: int, session: Session = Depends(get_session)) -> TaskRead:
 
 
 @router.post("/{task_id}/cancel", response_model=TaskRead)
-def cancel_task(task_id: int, session: Session = Depends(get_session)) -> TaskRead:
+def cancel_task(task_id: int, session: Annotated[Session, Depends(get_session)]) -> TaskRead:
     try:
         return TaskService(session).cancel(task_id)
     except NotFoundError as error:
@@ -60,7 +60,7 @@ def cancel_task(task_id: int, session: Session = Depends(get_session)) -> TaskRe
 
 
 @router.post("/{task_id}/retry", response_model=TaskRead)
-def retry_task(task_id: int, session: Session = Depends(get_session)) -> TaskRead:
+def retry_task(task_id: int, session: Annotated[Session, Depends(get_session)]) -> TaskRead:
     try:
         return TaskService(session).retry(task_id)
     except (ConflictError, DispatchError, NotFoundError) as error:
@@ -68,7 +68,7 @@ def retry_task(task_id: int, session: Session = Depends(get_session)) -> TaskRea
 
 
 @router.delete("/{task_id}", response_model=TaskRead)
-def delete_task(task_id: int, session: Session = Depends(get_session)) -> TaskRead:
+def delete_task(task_id: int, session: Annotated[Session, Depends(get_session)]) -> TaskRead:
     try:
         return TaskService(session).delete(task_id)
     except (ConflictError, NotFoundError) as error:
