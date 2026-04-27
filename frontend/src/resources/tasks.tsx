@@ -1,6 +1,6 @@
 import CancelIcon from "@mui/icons-material/Cancel";
 import ReplayIcon from "@mui/icons-material/Replay";
-import type { MouseEvent } from "react";
+import { useEffect, type MouseEvent } from "react";
 import {
   Button,
   Create,
@@ -25,6 +25,7 @@ import {
   useRecordContext,
   useRefresh,
 } from "react-admin";
+import { useFormContext, useWatch } from "react-hook-form";
 
 import { apiUrl } from "../config";
 import { JsonField } from "../components/JsonField";
@@ -54,9 +55,46 @@ type TaskRecord = {
 };
 
 type TaskCreateFormData = {
+  scenario?: string;
   type?: string;
+  max_attempts?: number;
   payload?: Record<string, unknown>;
 };
+
+type TaskScenario = {
+  id: string;
+  name: string;
+  type: string;
+  max_attempts: number;
+  payload: Record<string, unknown>;
+};
+
+const taskScenarios: TaskScenario[] = [
+  {
+    id: "json_transform_select_rename",
+    name: "JSON transform: select + rename",
+    type: "json_transform",
+    max_attempts: 1,
+    payload: {
+      input: JSON.stringify({ id: 42, name: "Ada", role: "engineer", hidden: true }, null, 2),
+      select_keys: JSON.stringify(["id", "name", "role"], null, 2),
+      rename_keys: JSON.stringify({ id: "user_id", role: "title" }, null, 2),
+    },
+  },
+  {
+    id: "batch_fanout_three_echoes",
+    name: "Batch fanout: 3 echo children",
+    type: "batch_fanout",
+    max_attempts: 1,
+    payload: {
+      child_count: 3,
+      message_prefix: "fanout child",
+      child_max_attempts: 1,
+    },
+  },
+];
+
+const taskScenarioChoices = taskScenarios.map(({ id, name }) => ({ id, name }));
 
 const parseJsonValue = (value: unknown, fallback: unknown) => {
   if (typeof value !== "string") {
@@ -94,7 +132,9 @@ const parseJsonArray = (value: unknown) => {
   return parsed;
 };
 
-const transformTaskCreate = (data: TaskCreateFormData) => {
+const transformTaskCreate = (formData: TaskCreateFormData) => {
+  const { scenario: _scenario, ...data } = formData;
+
   if (data.type !== "json_transform") {
     return data;
   }
@@ -109,6 +149,28 @@ const transformTaskCreate = (data: TaskCreateFormData) => {
     },
   };
 };
+
+function TaskScenarioInput() {
+  const { setValue } = useFormContext();
+  const scenarioId = useWatch({ name: "scenario" });
+
+  useEffect(() => {
+    if (typeof scenarioId !== "string") {
+      return;
+    }
+
+    const scenario = taskScenarios.find((item) => item.id === scenarioId);
+    if (!scenario) {
+      return;
+    }
+
+    setValue("type", scenario.type, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    setValue("max_attempts", scenario.max_attempts, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    setValue("payload", scenario.payload, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+  }, [scenarioId, setValue]);
+
+  return <SelectInput source="scenario" label="Scenario" choices={taskScenarioChoices} emptyText="Custom" />;
+}
 
 function TaskCommandButton({ command }: { command: "cancel" | "retry" }) {
   const record = useRecordContext<TaskRecord>();
@@ -264,6 +326,7 @@ export function TaskCreate() {
       <SimpleForm
         defaultValues={{
           type: "echo",
+          scenario: "",
           max_attempts: 1,
           payload: {
             message: "",
@@ -279,6 +342,7 @@ export function TaskCreate() {
         <ReferenceInput source="queue_id" reference="queues">
           <SelectInput optionText="name" required />
         </ReferenceInput>
+        <TaskScenarioInput />
         <SelectInput source="type" choices={taskTypeChoices} required />
         <PayloadInputs />
         <NumberInput source="max_attempts" min={1} max={10} required />
