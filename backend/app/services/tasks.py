@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.enums import ACTIVE_STATUSES, TaskStatus
 from app.models.queue import QueueModel
 from app.models.task import TaskModel
-from app.schemas.task import TaskCreate, normalize_payload
+from app.schemas.task import TaskCreate
 from app.services.dispatcher import dispatcher
 from app.services.errors import ConflictError, DispatchError, NotFoundError
 
@@ -79,7 +79,7 @@ class TaskService:
         task = TaskModel(
             queue_id=data.queue_id,
             type=data.type.value,
-            payload=normalize_payload(data.type, data.payload),
+            payload=data.payload.model_dump(),
             max_attempts=data.max_attempts,
         )
         self.session.add(task)
