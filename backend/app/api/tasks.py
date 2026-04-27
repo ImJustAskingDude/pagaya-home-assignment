@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from fastapi_filter import FilterDepends
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import raise_http_error, reject_unknown_query_params
+from app.api.dependencies import raise_http_error
 from app.core.database import get_session
 from app.schemas.common import ListResponse
 from app.schemas.task import TaskCreate, TaskRead
@@ -13,22 +13,12 @@ from app.services.query import TaskFilter
 from app.services.tasks import TaskService
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
-validate_task_list_query = reject_unknown_query_params(
-    "offset",
-    "limit",
-    "id__in",
-    "queue_id",
-    "status",
-    "type",
-    "order_by",
-)
 
 
 @router.get("", response_model=ListResponse[TaskRead])
 def list_tasks(
     response: Response,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[None, Depends(validate_task_list_query)],
     filters: Annotated[TaskFilter, FilterDepends(TaskFilter)],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=1000)] = 25,

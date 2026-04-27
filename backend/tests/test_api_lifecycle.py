@@ -59,7 +59,8 @@ def test_queue_crud_lists_with_total_count_and_blocks_active_delete(client: Test
     assert name_filter_response.json()["items"][0]["id"] == alpha["id"]
 
     unknown_filter_response = client.get("/api/queues", params={"not_a_filter": "value"})
-    assert unknown_filter_response.status_code == 422
+    assert unknown_filter_response.status_code == 200
+    assert unknown_filter_response.json()["total"] == 2
 
     update_response = client.put(f"/api/queues/{alpha['id']}", json={"name": "critical"})
     assert update_response.status_code == 200
@@ -130,7 +131,8 @@ def test_task_create_list_cancel_and_delete_flow(client: TestClient, dispatcher:
     assert invalid_sort.status_code == 422
 
     unknown_filter = client.get("/api/tasks", params={"not_a_filter": "value"})
-    assert unknown_filter.status_code == 422
+    assert unknown_filter.status_code == 200
+    assert unknown_filter.json()["total"] == 1
 
     active_delete = client.delete(f"/api/tasks/{task['id']}")
     assert active_delete.status_code == 409

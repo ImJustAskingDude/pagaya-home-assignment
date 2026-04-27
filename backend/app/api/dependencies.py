@@ -1,6 +1,4 @@
-from collections.abc import Callable
-
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, status
 
 from app.services.errors import ConflictError, DispatchError, NotFoundError
 
@@ -16,17 +14,3 @@ def raise_http_error(error: Exception) -> None:
             detail=str(error),
         ) from error
     raise error
-
-
-def reject_unknown_query_params(*allowed_params: str) -> Callable[[Request], None]:
-    allowed = set(allowed_params)
-
-    def dependency(request: Request) -> None:
-        unknown = sorted(set(request.query_params.keys()) - allowed)
-        if unknown:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Unsupported query parameter(s): {', '.join(unknown)}",
-            )
-
-    return dependency
