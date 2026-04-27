@@ -153,7 +153,9 @@ export function TaskList() {
 export function TaskResultList() {
   return (
     <List
+      disableSyncWithLocation
       sort={{ field: "created_at", order: "DESC" }}
+      storeKey="task-results.resultListParams"
       queryOptions={{ refetchInterval: 2000 }}
       filters={[
         <ReferenceInput key="queue_id" source="queue_id" reference="queues" alwaysOn />,
